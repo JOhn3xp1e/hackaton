@@ -1,0 +1,268 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode: <html class="dark"> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+   ───────────────────────────────────────────────────────────────────────────
+   Re-theme the entire app for a new hackathon by editing ONLY this block.
+   Every component reads colors through these variables (shadcn/ui naming).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Surfaces */
+  --background: #f8f9f6;
+  --foreground: #17231c;
+  --card: #ffffff;
+  --card-foreground: #17231c;
+  --popover: #ffffff;
+  --popover-foreground: #17231c;
+
+  /* Brand accent */
+  --primary: #26734d;
+  --primary-foreground: #f8f9f6;
+
+  /* Neutral fills */
+  --secondary: #eef1ec;
+  --secondary-foreground: #17231c;
+  --muted: #f0f2ee;
+  --muted-foreground: #78847b;
+  --accent: #e8f0ea; /* subtle tint used for hover / active states */
+  --accent-foreground: #17231c;
+
+  /* Semantic */
+  --destructive: #b4412f;
+  --destructive-foreground: #ffffff;
+  --success: #26734d;
+  --warning: #a86a12;
+  --info: #2f5f8a;
+
+  /* Lines & focus */
+  --border: #e4e9e3;
+  --input: #dde3dc;
+  --ring: #26734d;
+
+  /* Blueprint grid */
+  --grid-line: rgb(23 35 28 / 0.045);
+  --grid-size: 32px;
+
+  /* Chart palette */
+  --chart-1: #26734d;
+  --chart-2: #78847b;
+  --chart-3: #9cc5ab;
+  --chart-4: #2f5f8a;
+  --chart-5: #a86a12;
+
+  /* Shape */
+  --radius: 0.625rem;
+
+  /* Sidebar */
+  --sidebar: #f3f5f1;
+  --sidebar-foreground: #17231c;
+}
+
+.dark {
+  --background: #0e1511;
+  --foreground: #e8ede8;
+  --card: #131c17;
+  --card-foreground: #e8ede8;
+  --popover: #151f19;
+  --popover-foreground: #e8ede8;
+
+  --primary: #4fae7f;
+  --primary-foreground: #0b120e;
+
+  --secondary: #1b2620;
+  --secondary-foreground: #e8ede8;
+  --muted: #18221c;
+  --muted-foreground: #8d998f;
+  --accent: #1d2b23;
+  --accent-foreground: #e8ede8;
+
+  --destructive: #e0705c;
+  --destructive-foreground: #0b120e;
+  --success: #4fae7f;
+  --warning: #d9a14a;
+  --info: #6fa3d1;
+
+  --border: #233029;
+  --input: #2a382f;
+  --ring: #4fae7f;
+
+  --grid-line: rgb(232 237 232 / 0.04);
+
+  --chart-1: #4fae7f;
+  --chart-2: #8d998f;
+  --chart-3: #2f6e4e;
+  --chart-4: #6fa3d1;
+  --chart-5: #d9a14a;
+
+  --sidebar: #111a15;
+  --sidebar-foreground: #e8ede8;
+}
+
+/* Map CSS variables → Tailwind utilities (bg-primary, text-muted-foreground, …) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Inter Tight', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Restrained shadows */
+  --shadow-xs: 0 1px 0 rgb(23 35 28 / 0.03);
+  --shadow-sm: 0 1px 2px rgb(23 35 28 / 0.04), 0 1px 1px rgb(23 35 28 / 0.02);
+  --shadow-md: 0 4px 12px -2px rgb(23 35 28 / 0.06), 0 2px 4px -2px rgb(23 35 28 / 0.04);
+  --shadow-lg: 0 16px 40px -12px rgb(23 35 28 / 0.14), 0 4px 10px -4px rgb(23 35 28 / 0.05);
+}
+
+@theme {
+  /* Popover enter / exit (used by Radix data-state attributes) */
+  --animate-pop-in: pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop-out: pop-out 120ms ease-in forwards;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-progress: progress 1.1s ease-in-out infinite;
+
+  @keyframes progress {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+  }
+
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes pop-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  }
+  @keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight text-balance;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Subtle blueprint grid, fades out towards the bottom */
+@utility bg-blueprint {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  background-position: -1px -1px;
+}
+
+@utility mask-fade-b {
+  mask-image: linear-gradient(to bottom, black 30%, transparent 100%);
+}
+
+/* Small uppercase mono label — editorial “eyebrow” */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Respect users who ask for less motion (Motion components also honour this
+   via <MotionConfig reducedMotion="user">). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

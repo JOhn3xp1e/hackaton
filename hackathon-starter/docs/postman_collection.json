@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "Hackathon Starter API",
+    "description": "Import into Postman (File → Import). Edit the `baseUrl` collection variable if the API runs elsewhere.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api" },
+    { "key": "itemId", "value": "6f1c2b1e-0000-4000-8000-000000000001" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        { "name": "Health check", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
+        { "name": "Database check", "request": { "method": "GET", "url": "{{baseUrl}}/health/db" } }
+      ]
+    },
+    {
+      "name": "Items",
+      "item": [
+        {
+          "name": "List items",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/items?page=1&pageSize=10&search=&status=&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["items"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" },
+                { "key": "search", "value": "" },
+                { "key": "status", "value": "" },
+                { "key": "sort", "value": "createdAt" },
+                { "key": "order", "value": "desc" }
+              ]
+            }
+          }
+        },
+        { "name": "Get item", "request": { "method": "GET", "url": "{{baseUrl}}/items/{{itemId}}" } },
+        {
+          "name": "Create item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const id = pm.response.json()?.data?.id;",
+                  "if (id) pm.collectionVariables.set('itemId', id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/items",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Created from Postman\",\n  \"description\": \"Hello API\",\n  \"status\": \"todo\",\n  \"priority\": \"high\",\n  \"category\": \"Backend\"\n}" }
+          }
+        },
+        {
+          "name": "Create item (validation error)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/items",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"x\",\n  \"status\": \"nope\"\n}" }
+          }
+        },
+        {
+          "name": "Update item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/items/{{itemId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"done\"\n}" }
+          }
+        },
+        { "name": "Delete item", "request": { "method": "DELETE", "url": "{{baseUrl}}/items/{{itemId}}" } }
+      ]
+    }
+  ]
+}
