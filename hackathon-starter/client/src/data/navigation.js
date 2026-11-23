@@ -1,4 +1,6 @@
-import { ChartColumn, ClipboardList, House, MapPin, Settings, SquarePen, Ticket } from 'lucide-react'
+import { ChartColumn, Clock, LayoutGrid, Map, Settings, SquarePen, Wrench } from 'lucide-react'
+
+const STAFF = ['lab_assistant', 'maintenance', 'admin']
 
 /**
  * Sidebar navigation. `roles` limits an item to those profile roles
@@ -6,25 +8,16 @@ import { ChartColumn, ClipboardList, House, MapPin, Settings, SquarePen, Ticket 
  */
 export const navSections = [
   {
-    title: 'Report',
+    title: 'Workspace',
     items: [
-      { label: 'Home', to: '/', icon: House, end: true },
-      { label: 'Report an issue', to: '/report', icon: SquarePen },
-      { label: 'My reports', to: '/my-reports', icon: ClipboardList },
+      { label: 'Overview', to: '/', icon: LayoutGrid, end: true },
+      { label: 'Report an Issue', to: '/report', icon: SquarePen },
+      { label: 'Track Reports', to: '/my-reports', icon: Clock },
+      { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true, roles: STAFF },
+      { label: 'Analytics', to: '/analytics', icon: ChartColumn, roles: STAFF },
+      { label: 'Campus Map', to: '/locations', icon: Map, roles: ['admin'] },
+      { label: 'Settings', to: '/settings', icon: Settings },
     ],
-  },
-  {
-    title: 'Maintenance',
-    roles: ['lab_assistant', 'maintenance', 'admin'],
-    items: [
-      { label: 'All tickets', to: '/tickets', icon: Ticket, end: true },
-      { label: 'Analytics', to: '/analytics', icon: ChartColumn },
-      { label: 'Locations & QR', to: '/locations', icon: MapPin, roles: ['admin'] },
-    ],
-  },
-  {
-    title: 'Account',
-    items: [{ label: 'Settings', to: '/settings', icon: Settings }],
   },
 ]
 
@@ -38,12 +31,12 @@ export function navForRole(role) {
 
 /** Pretty labels for auto-generated breadcrumbs */
 export const routeLabels = {
-  '/': 'Home',
+  '/': 'Overview',
   '/report': 'Report an issue',
   '/r': 'Report',
-  '/my-reports': 'My reports',
-  '/tickets': 'Tickets',
+  '/my-reports': 'Track reports',
+  '/tickets': 'Maintenance tasks',
   '/analytics': 'Analytics',
-  '/locations': 'Locations',
+  '/locations': 'Campus map',
   '/settings': 'Settings',
 }
