@@ -16,6 +16,7 @@ const TicketPage = lazy(() => import('@/pages/TicketPage'))
 const TicketsPage = lazy(() => import('@/pages/staff/TicketsPage'))
 const AnalyticsPage = lazy(() => import('@/pages/staff/AnalyticsPage'))
 const LocationsPage = lazy(() => import('@/pages/staff/LocationsPage'))
+const CampusMapPage = lazy(() => import('@/pages/CampusMapPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="r/:locationCode" element={<ReportPage />} />
             <Route path="my-reports" element={<MyReportsPage />} />
             <Route path="tickets/:ticketNumber" element={<TicketPage />} />
+            <Route path="campus-map" element={<CampusMapPage />} />
             <Route path="settings" element={<SettingsPage />} />
 
             <Route element={<RequireAuth roles={STAFF} />}>

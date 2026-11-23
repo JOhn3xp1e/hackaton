@@ -1,4 +1,4 @@
-import { ChartColumn, Clock, LayoutGrid, Map, Settings, SquarePen, Wrench } from 'lucide-react'
+import { ChartColumn, Clock, LayoutGrid, Map, QrCode, Settings, SquarePen, Wrench } from 'lucide-react'
 
 const STAFF = ['lab_assistant', 'maintenance', 'admin']
 
@@ -15,7 +15,8 @@ export const navSections = [
       { label: 'Track Reports', to: '/my-reports', icon: Clock },
       { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true, roles: STAFF },
       { label: 'Analytics', to: '/analytics', icon: ChartColumn, roles: STAFF },
-      { label: 'Campus Map', to: '/locations', icon: Map, roles: ['admin'] },
+      { label: 'Campus Map', to: '/campus-map', icon: Map },
+      { label: 'Locations & QR', to: '/locations', icon: QrCode, roles: ['admin'] },
       { label: 'Settings', to: '/settings', icon: Settings },
     ],
   },
@@ -37,6 +38,7 @@ export const routeLabels = {
   '/my-reports': 'Track reports',
   '/tickets': 'Maintenance tasks',
   '/analytics': 'Analytics',
-  '/locations': 'Campus map',
+  '/campus-map': 'Campus map',
+  '/locations': 'Locations & QR',
   '/settings': 'Settings',
 }
