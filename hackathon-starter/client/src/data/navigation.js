@@ -1,25 +1,28 @@
-import { ChartColumn, LayoutDashboard, MapPin, Newspaper, Settings, SquarePen, Ticket, Trophy } from 'lucide-react'
+import { ChartColumn, LayoutGrid, Map, Newspaper, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
 import { STAFF_ROLES } from '@/lib/constants'
 
 /**
  * Sidebar navigation. `roles` limits a section/item to those profile roles
  * (omit for everyone, including signed-out students).
+ *
+ * Students can only report an issue; everything else is for teachers & staff
+ * (STAFF_ROLES = teacher, lab_assistant, maintenance, admin).
  */
 export const navSections = [
   {
     title: 'Campus',
-    items: [{ label: 'Report an issue', to: '/', icon: SquarePen, end: true }],
+    items: [{ label: 'Report an Issue', to: '/', icon: SquarePen, end: true }],
   },
   {
-    title: 'Staff',
+    title: 'Workspace',
     roles: STAFF_ROLES,
     items: [
-      { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-      { label: 'Reports feed', to: '/reports', icon: Newspaper },
+      { label: 'Overview', to: '/dashboard', icon: LayoutGrid },
+      { label: 'Reports Feed', to: '/reports', icon: Newspaper },
+      { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true },
       { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
-      { label: 'All tickets', to: '/tickets', icon: Ticket, end: true },
       { label: 'Analytics', to: '/analytics', icon: ChartColumn },
-      { label: 'Locations & QR', to: '/locations', icon: MapPin, roles: ['admin'] },
+      { label: 'Campus Map', to: '/locations', icon: Map, roles: ['admin'] },
       { label: 'Settings', to: '/settings', icon: Settings },
     ],
   },
@@ -35,13 +38,13 @@ export function navForRole(role) {
 
 /** Pretty labels for auto-generated breadcrumbs */
 export const routeLabels = {
-  '/': 'Report',
+  '/': 'Report an issue',
   '/r': 'Report',
-  '/reports': 'Reports',
+  '/dashboard': 'Overview',
+  '/reports': 'Reports feed',
   '/leaderboard': 'Leaderboard',
-  '/dashboard': 'Dashboard',
-  '/tickets': 'Tickets',
+  '/tickets': 'Maintenance tasks',
   '/analytics': 'Analytics',
-  '/locations': 'Locations',
+  '/locations': 'Campus map',
   '/settings': 'Settings',
 }
