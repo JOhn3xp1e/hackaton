@@ -5,6 +5,7 @@ import { useAsync } from '@/hooks/useAsync'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useLiveTickets } from '@/hooks/useLiveTickets'
 import { CATEGORIES, CATEGORY_KEYS, SEVERITIES, SEVERITY_KEYS, STATUS_KEYS, STATUSES, VALIDITY, VALIDITY_KEYS } from '@/lib/constants'
+import { equipmentService } from '@/services/equipmentService'
 import { locationsService } from '@/services/locationsService'
 import { ticketsService } from '@/services/ticketsService'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -13,7 +14,7 @@ import { TicketsTable } from '@/components/tickets/TicketsTable'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 
-const FILTERS = ['status', 'severity', 'category', 'location', 'validity']
+const FILTERS = ['status', 'severity', 'category', 'location', 'equipment', 'validity']
 
 export default function TicketsPage() {
   const [params, setParams] = useSearchParams()
@@ -29,6 +30,7 @@ export default function TicketsPage() {
   }
 
   const locations = useAsync(() => locationsService.list(), [], { initialData: [] })
+  const equipment = useAsync(() => equipmentService.list(), [], { initialData: [] })
   const { data, isLoading, error, refetch } = useAsync(
     () =>
       ticketsService.list({
@@ -36,10 +38,11 @@ export default function TicketsPage() {
         severity: filters.severity,
         category: filters.category,
         locationId: filters.location,
+        equipmentId: filters.equipment,
         validity: filters.validity,
         search: debounced,
       }),
-    [filters.status, filters.severity, filters.category, filters.location, filters.validity, debounced],
+    [filters.status, filters.severity, filters.category, filters.location, filters.equipment, filters.validity, debounced],
     { initialData: [] },
   )
   useLiveTickets(refetch, { channel: 'tickets-page' })
@@ -49,6 +52,24 @@ export default function TicketsPage() {
     () => (locations.data ?? []).map((l) => ({ value: l.id, label: `${l.name} (${l.code})` })),
     [locations.data],
   )
+  // Narrowed to the chosen location so the list stays short.
+  const equipmentOptions = useMemo(
+    () =>
+      (equipment.data ?? [])
+        .filter((e) => !filters.location || e.location_id === filters.location)
+        .map((e) => ({ value: e.id, label: `${e.short_code} · ${e.name}` })),
+    [equipment.data, filters.location],
+  )
+
+  // Picking a location clears a selected item that isn't in it.
+  const setLocation = (value) => {
+    const next = new URLSearchParams(params)
+    if (value) next.set('location', value)
+    else next.delete('location')
+    const item = (equipment.data ?? []).find((e) => e.id === filters.equipment)
+    if (value && item && item.location_id !== value) next.delete('equipment')
+    setParams(next, { replace: true })
+  }
 
   return (
     <>
@@ -58,7 +79,7 @@ export default function TicketsPage() {
         description="Every reported issue across campus. Click a row to update its status or review it for credits."
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.3fr_repeat(5,1fr)_auto]">
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.3fr_repeat(6,1fr)_auto]">
         <SearchBar value={search} onChange={(v) => setParam('search', v)} placeholder="Title, ticket # or asset…" />
         <Select
           aria-label="Filter by status"
@@ -81,8 +102,14 @@ export default function TicketsPage() {
         <Select
           aria-label="Filter by location"
           value={filters.location}
-          onChange={(e) => setParam('location', e.target.value)}
+          onChange={(e) => setLocation(e.target.value)}
           options={[{ value: '', label: locations.isLoading ? 'Loading…' : 'All locations' }, ...locationOptions]}
+        />
+        <Select
+          aria-label="Filter by equipment"
+          value={filters.equipment}
+          onChange={(e) => setParam('equipment', e.target.value)}
+          options={[{ value: '', label: equipment.isLoading ? 'Loading…' : 'All equipment' }, ...equipmentOptions]}
         />
         <Select
           aria-label="Filter by review"

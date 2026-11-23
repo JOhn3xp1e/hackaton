@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { Download, ExternalLink, Monitor, Plus, Printer, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, FileText, Monitor, Plus, Printer, Trash2 } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useForm } from '@/hooks/useForm'
@@ -9,6 +9,8 @@ import { CODE_PATTERN } from '@/lib/constants'
 import { config } from '@/lib/config'
 import { equipmentService } from '@/services/equipmentService'
 import { locationsService } from '@/services/locationsService'
+import { ticketsService } from '@/services/ticketsService'
+import { EquipmentDetail } from '@/components/locations/EquipmentDetail'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { FormContainer } from '@/components/shared/FormContainer'
@@ -93,9 +95,11 @@ export default function EquipmentPage() {
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(null)
+  const [viewing, setViewing] = useState(null)
 
   const locations = useAsync(() => locationsService.list(), [], { initialData: [] })
   const equipment = useAsync(() => equipmentService.list(), [], { initialData: [] })
+  const reportCounts = useAsync(() => ticketsService.countsByEquipment(), [], { initialData: {} })
   const room = (locations.data ?? []).find((l) => l.code === roomCode)
 
   const filtered = useMemo(() => {
@@ -179,16 +183,33 @@ export default function EquipmentPage() {
         />
       ) : (
         <ul className="qr-sheet grid gap-4 sm:grid-cols-2 xl:grid-cols-3 print:grid-cols-4 print:gap-4">
-          {filtered.map((item) => (
+          {filtered.map((item) => {
+            const count = reportCounts.data?.[item.id]
+            return (
             <li
               key={item.id}
-              className="flex break-inside-avoid gap-4 rounded-lg border border-border bg-card p-4 shadow-xs print:flex-col print:items-center print:gap-1 print:border-neutral-400 print:p-2 print:text-center print:shadow-none"
+              className="flex break-inside-avoid gap-4 rounded-lg border border-border bg-card p-4 shadow-xs transition-colors hover:border-primary/40 print:flex-col print:items-center print:gap-1 print:border-neutral-400 print:p-2 print:text-center print:shadow-none"
             >
-              <QrImage url={equipmentUrlFor(item.short_code)} label={item.short_code} size={104} className="shrink-0 border border-border print:border-0" />
+              <button type="button" onClick={() => setViewing(item)} className="shrink-0 self-start rounded-md print:self-center" aria-label={`View ${item.name}`}>
+                <QrImage url={equipmentUrlFor(item.short_code)} label={item.short_code} size={104} className="border border-border print:border-0" />
+              </button>
               <div className="grid min-w-0 content-between gap-2">
                 <div className="grid gap-0.5">
-                  <span className="font-mono text-[12px] font-semibold">{item.short_code}</span>
-                  <span className="font-medium leading-snug">{item.name}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-[12px] font-semibold">{item.short_code}</span>
+                    {count?.open > 0 && (
+                      <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[11px] font-medium text-amber-700 dark:text-amber-300 print:hidden">
+                        {count.open} open
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewing(item)}
+                    className="w-fit text-left font-medium leading-snug hover:text-primary hover:underline print:no-underline"
+                  >
+                    {item.name}
+                  </button>
                   <span className="text-[12.5px] text-muted-foreground">
                     {item.location?.name}
                     {item.location?.floor && ` · ${item.location.floor}`}
@@ -197,6 +218,9 @@ export default function EquipmentPage() {
                   <span className="hidden text-[10px] print:block">Broken? Scan to report · CampusFix</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 print:hidden">
+                  <Button size="sm" variant="outline" onClick={() => setViewing(item)} leftIcon={<FileText />}>
+                    Reports{count?.total ? ` (${count.total})` : ''}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => download(item)} leftIcon={<Download />}>
                     PNG
                   </Button>
@@ -211,10 +235,12 @@ export default function EquipmentPage() {
                 </div>
               </div>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
 
+      <EquipmentDetail item={viewing} onOpenChange={(o) => !o && setViewing(null)} onDownload={download} />
       <AddEquipmentModal
         key={room?.id ?? 'all'}
         open={adding}

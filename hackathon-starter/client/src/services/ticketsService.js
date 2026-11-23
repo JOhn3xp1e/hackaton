@@ -34,7 +34,7 @@ const DETAIL_SELECT = `
 export const ticketsService = {
   /**
    * @param {{ studentNo?: string, status?: string, severity?: string, category?: string,
-   *           locationId?: string, validity?: string, search?: string, limit?: number }} filters
+   *           locationId?: string, equipmentId?: string, validity?: string, search?: string, limit?: number }} filters
    */
   async list(filters = {}) {
     let q = withoutDemo(supabase.from('tickets').select(LIST_SELECT).order('created_at', { ascending: false }))
@@ -44,12 +44,28 @@ export const ticketsService = {
     if (filters.severity) q = q.eq('severity', filters.severity)
     if (filters.category) q = q.eq('category', filters.category)
     if (filters.locationId) q = q.eq('location_id', filters.locationId)
+    if (filters.equipmentId) q = q.eq('equipment_id', filters.equipmentId)
     if (filters.search) {
       const s = filters.search.replace(/[%,()]/g, ' ').trim()
       if (s) q = q.or(`title.ilike.%${s}%,ticket_number.ilike.%${s}%,asset_label.ilike.%${s}%`)
     }
     q = q.limit(filters.limit ?? 200)
     return query(q, 'Could not load reports')
+  },
+
+  /** { [equipment_id]: { total, open } } for the Equipment page cards. */
+  async countsByEquipment() {
+    const rows = await query(
+      withoutDemo(supabase.from('tickets').select('equipment_id, status').not('equipment_id', 'is', null)),
+      'Could not load report counts',
+    )
+    const counts = {}
+    for (const r of rows) {
+      const c = (counts[r.equipment_id] ??= { total: 0, open: 0 })
+      c.total += 1
+      if (r.status !== 'resolved') c.open += 1
+    }
+    return counts
   },
 
   async getByNumber(ticketNumber) {
