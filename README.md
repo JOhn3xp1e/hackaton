@@ -1,3 +1,5 @@
+
+
 # CampusFix
 
 **Campus facility and equipment reporting.** A student spots a broken computer, projector, chair, light or Wi-Fi problem. They scan a QR code, report it in under a minute without creating an account, and follow the repair until it's fixed. Maintenance staff get a live dashboard, AI triage, a 3D campus map and analytics on the most-reported problems.
@@ -5,6 +7,9 @@
 > Built as a hackathon prototype. The app works end to end on real data (Supabase, Realtime, Storage), but some security shortcuts were taken on purpose; see [Prototype limitations](#prototype-limitations).
 
 ---
+## Links:
+Site: https://hackathon-starter-navy.vercel.app/
+Presentation: https://claude.ai/artifact/8Vd2UK8tNEq5NzoCDPdekp?sk=RJH6O-RWEAi1AsnNMeHiJQ#slide-778c791d7342
 
 ## Contents
 
