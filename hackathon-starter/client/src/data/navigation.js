@@ -1,4 +1,4 @@
-import { ChartColumn, LayoutGrid, Map, Newspaper, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
+import { ChartColumn, LayoutGrid, Map, Monitor, Newspaper, QrCode, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
 import { STAFF_ROLES } from '@/lib/constants'
 
 /**
@@ -24,7 +24,9 @@ export const navSections = [
       { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true },
       { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
       { label: 'Analytics', to: '/analytics', icon: ChartColumn },
-      { label: 'Campus Map', to: '/locations', icon: Map, roles: ['admin'] },
+      { label: 'Campus Map', to: '/campus-map', icon: Map },
+      { label: 'Locations & QR', to: '/locations', icon: QrCode, roles: ['admin'] },
+      { label: 'Equipment & QR', to: '/equipment', icon: Monitor, roles: ['admin'] },
       { label: 'Settings', to: '/settings', icon: Settings },
     ],
   },
@@ -48,6 +50,9 @@ export const routeLabels = {
   '/leaderboard': 'Leaderboard',
   '/tickets': 'Maintenance tasks',
   '/analytics': 'Analytics',
-  '/locations': 'Campus map',
+  '/campus-map': 'Campus map',
+  '/locations': 'Locations & QR',
+  '/equipment': 'Equipment & QR',
+  '/e': 'Report',
   '/settings': 'Settings',
 }

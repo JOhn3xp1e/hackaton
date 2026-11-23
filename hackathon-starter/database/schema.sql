@@ -219,6 +219,7 @@ create trigger tickets_sync_resolved_at
   for each row execute function public.tickets_sync_resolved_at();
 
 
+
 -- ───────────────────────────────────────────────────────────────────────────
 -- 5. ticket_updates — the status timeline shown on the ticket page
 -- ───────────────────────────────────────────────────────────────────────────

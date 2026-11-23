@@ -9,6 +9,8 @@ export const config = {
   appVersion: env.VITE_APP_VERSION || '1.0',
   campusName: env.VITE_CAMPUS_NAME || 'Main Campus',
   campusUnit: env.VITE_CAMPUS_UNIT || 'Engineering & Technology',
+  /** Public site URL printed into QR codes (e.g. https://campusfix.vercel.app). Falls back to the current origin. */
+  publicAppUrl: (env.VITE_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, ''),
   apiUrl: (env.VITE_API_URL || '/api').replace(/\/$/, ''),
   supabaseUrl: env.VITE_SUPABASE_URL || '',
   supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',

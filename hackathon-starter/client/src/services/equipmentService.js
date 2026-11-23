@@ -10,6 +10,13 @@ const clean = (term = '') => term.replace(/[%,()*\\]/g, ' ').trim()
 
 /** Equipment items with sticker IDs (CL2-PC15). Each one carries its location. */
 export const equipmentService = {
+  /** All equipment, optionally for one room, ordered by short code. */
+  list: ({ locationId } = {}) => {
+    let q = supabase.from('equipment').select(SELECT).order('short_code')
+    if (locationId) q = q.eq('location_id', locationId)
+    return query(q, 'Could not load equipment')
+  },
+
   /**
    * Search by Equipment ID, equipment name, or room (name / code / building).
    * With an empty term and a `locationId`, lists that room's equipment.
@@ -67,6 +74,9 @@ export const equipmentService = {
       supabase.from('equipment').select(SELECT).eq('short_code', code.trim().toUpperCase()).maybeSingle(),
       'Could not look up this equipment',
     ),
+
+  /** Resolve a QR sticker value (e.g. "CL1-PC-15"), with its room. Returns null if not found. */
+  getByShortCode: (code) => equipmentService.getByCode(code),
 
   listByLocation: (locationId) =>
     query(

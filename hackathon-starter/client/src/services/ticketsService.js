@@ -68,7 +68,7 @@ export const ticketsService = {
    * optional reporterName, isAnonymous) reports.
    * @param {{ locationId: string, reporterId?: string, studentNo?: string, reporterName?: string,
    *           isAnonymous?: boolean, category: string, severity: string, title: string,
-   *           description?: string, assetLabel?: string, photoUrls?: string[],
+   *           description?: string, assetLabel?: string, equipmentId?: string, photoUrls?: string[],
    *           ai?: { summary: string, category: string, severity: string } | null }} input
    */
   async create(input) {

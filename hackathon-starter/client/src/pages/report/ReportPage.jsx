@@ -48,7 +48,7 @@ const SECTION = 'border-b border-border px-5 py-5 last:border-b-0 sm:px-6'
 const EMPTY = { category: '', severity: 'medium', title: '', description: '' }
 
 export default function ReportPage() {
-  const { locationCode } = useParams()
+  const { locationCode, equipmentCode } = useParams()
   const { user, profile, isStaff } = useAuth()
   const toast = useToast()
   const [identity, saveIdentity] = useStudentIdentity()
@@ -78,6 +78,17 @@ export default function ReportPage() {
     [locationCode],
   )
 
+  // Equipment QR code (/e/<short_code>): pre-select the scanned item.
+  const scannedItem = useAsync(
+    async () => {
+      if (!equipmentCode) return null
+      const item = await equipmentService.getByShortCode(decodeURIComponent(equipmentCode))
+      if (item) setEquipment(item)
+      return item ?? false
+    },
+    [equipmentCode],
+  )
+
   // The picked equipment carries its location; that's where the ticket goes.
   const location = equipment?.location ?? null
 
@@ -92,7 +103,7 @@ export default function ReportPage() {
 
   const reset = () => {
     setValues(EMPTY)
-    setEquipment(null)
+    setEquipment(equipmentCode && scannedItem.data ? scannedItem.data : null)
     setPhotos([])
     setAi(null)
     setErrors({})
@@ -165,9 +176,25 @@ export default function ReportPage() {
   }
 
   // "Report an issue" is the students' page; staff landing on "/" go to their dashboard.
-  if (asStaff && !locationCode) return <Navigate to="/dashboard" replace />
+  if (asStaff && !locationCode && !equipmentCode) return <Navigate to="/dashboard" replace />
 
   if (created) return <ReportSuccess ticket={created} onReportAnother={reset} />
+
+  // QR code pointing at an unknown item
+  if (equipmentCode && scannedItem.data === false) {
+    return (
+      <EmptyState
+        icon={QrCode}
+        title="Unknown equipment code"
+        description={`We couldn't find an item with code "${decodeURIComponent(equipmentCode)}". The QR sticker may be outdated.`}
+        action={
+          <Button asChild variant="outline">
+            <Link to="/">Search by Equipment ID instead</Link>
+          </Button>
+        }
+      />
+    )
+  }
 
   // QR code pointing at an unknown room
   if (locationCode && scanned.data === false) {
@@ -190,7 +217,7 @@ export default function ReportPage() {
   return (
     <>
       <PageHeader
-        eyebrow={locationCode ? 'Scanned QR code' : 'New report'}
+        eyebrow={locationCode || equipmentCode ? 'Scanned QR code' : 'New report'}
         title="Report a broken facility"
         description="No account needed. Tell maintenance what's broken, get a ticket number, and earn credits when your report is confirmed."
       />
@@ -299,7 +326,7 @@ export default function ReportPage() {
                 }}
                 locationId={locationCode ? scanned.data?.id : undefined}
                 invalid={Boolean(errors.equipmentId)}
-                disabled={submitting || (locationCode && scanned.isLoading)}
+                disabled={submitting || (locationCode && scanned.isLoading) || (equipmentCode && scannedItem.isLoading)}
               />
             </Field>
           </FormSection>

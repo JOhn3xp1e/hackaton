@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- CAMPUSFIX — SEED DATA (locations)
+-- CAMPUSFIX — SEED DATA (locations & equipment)
 -- Run AFTER schema.sql. Idempotent: ON CONFLICT (code) DO NOTHING.
 --
 -- Demo users and historical tickets need real auth accounts, so they are

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Cpu, Download, ExternalLink, MapPin, Plus, Printer } from 'lucide-react'
+import { Link } from 'react-router'
+import { Cpu, Download, ExternalLink, MapPin, Monitor, Plus, Printer } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useForm } from '@/hooks/useForm'
@@ -11,7 +12,7 @@ import { equipmentService } from '@/services/equipmentService'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { FormContainer } from '@/components/shared/FormContainer'
-import { QrImage, qrDataUrl, reportUrlFor } from '@/components/locations/QrImage'
+import { QrImage, downloadQr, reportUrlFor } from '@/components/locations/QrImage'
 import { EquipmentManager } from '@/components/locations/EquipmentManager'
 import { Modal } from '@/components/ui/modal'
 import { Field } from '@/components/ui/field'
@@ -112,11 +113,7 @@ export default function LocationsPage() {
 
   const download = async (loc) => {
     try {
-      const url = await qrDataUrl(reportUrlFor(loc.code), 1024)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `campusfix-qr-${loc.code}.png`
-      a.click()
+      await downloadQr(reportUrlFor(loc.code), `campusfix-qr-${loc.code}.png`)
     } catch (err) {
       toast.error('Could not create the QR image', { description: err.message })
     }
@@ -195,6 +192,11 @@ export default function LocationsPage() {
                     <a href={reportUrlFor(loc.code)} target="_blank" rel="noreferrer">
                       <ExternalLink /> Open
                     </a>
+                  </Button>
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link to={`/equipment?room=${encodeURIComponent(loc.code)}`}>
+                      <Monitor /> Equipment
+                    </Link>
                   </Button>
                 </div>
               </div>

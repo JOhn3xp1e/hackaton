@@ -62,6 +62,9 @@ export const VALIDITY_KEYS = Object.keys(VALIDITY)
 /** Keep in sync with the student_credits view in database/schema.sql. */
 export const CREDITS = { valid: 10, resolvedBonus: 5 }
 
+/** Room codes and equipment short codes (CHECK constraints in database/schema.sql). */
+export const CODE_PATTERN = /^[A-Z0-9-]{2,32}$/
+
 export const STUDENT_NO_PATTERN = /^[A-Za-z0-9-]{4,20}$/
 
 export const LOCATION_TYPES = {
