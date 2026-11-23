@@ -9,6 +9,7 @@ import { CATEGORIES, CATEGORY_KEYS, CREDITS, LOCATION_TYPES, ROLES, SEVERITIES, 
 import { zodErrorsToObject } from '@/lib/schemas'
 import { useStudentIdentity } from '@/lib/studentIdentity'
 import { cn } from '@/lib/utils'
+import { equipmentService } from '@/services/equipmentService'
 import { locationsService } from '@/services/locationsService'
 import { photosService } from '@/services/photosService'
 import { ticketsService } from '@/services/ticketsService'
