@@ -18,6 +18,8 @@ const schema = z.object({
   SUPABASE_SECRET_KEY: z.string().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -37,6 +39,10 @@ export const env = {
   port: e.PORT,
   corsOrigins: e.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
   anthropicApiKey: e.ANTHROPIC_API_KEY || '',
+  groq: {
+    apiKey: e.GROQ_API_KEY || '',
+    model: e.GROQ_MODEL || 'openai/gpt-oss-120b',
+  },
   supabase: {
     url: e.SUPABASE_URL || '',
     key: e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SECRET_KEY || e.SUPABASE_ANON_KEY || e.SUPABASE_PUBLISHABLE_KEY || '',

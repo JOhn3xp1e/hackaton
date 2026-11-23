@@ -7,6 +7,8 @@ import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
 import { PageLoader } from '@/components/feedback/LoadingSkeleton'
 import { Sidebar } from './Sidebar'
 import { Navbar } from './Navbar'
+import { useAuth } from '@/providers/AuthProvider'
+import { ChatWidget } from '@/components/assistant/ChatWidget'
 
 /**
  * App shell: sidebar + navbar + animated page outlet on a blueprint grid.
@@ -16,6 +18,7 @@ export function AppLayout() {
   const outlet = useOutlet()
   const [collapsed, setCollapsed] = useLocalStorage('cf-sidebar-collapsed', false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { isStaff } = useAuth()
 
   // Close mobile drawer and scroll to top on navigation
   useEffect(() => {
@@ -57,6 +60,9 @@ export function AppLayout() {
           </div>
         </footer>
       </div>
+
+      {/* Staff-only Groq assistant (reads live report data) */}
+      {isStaff && <ChatWidget />}
     </div>
   )
 }

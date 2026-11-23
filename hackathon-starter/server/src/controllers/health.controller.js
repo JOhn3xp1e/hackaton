@@ -11,6 +11,7 @@ export const healthController = {
       environment: env.nodeEnv,
       supabase: isSupabaseEnabled,
       aiTriage: Boolean(env.anthropicApiKey),
+      chatbot: Boolean(env.groq.apiKey),
       uptime: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
     })

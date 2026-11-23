@@ -68,6 +68,21 @@ export const locationsService = {
     }
   },
 
+  /** Open high/critical tickets per location: { [location_id]: { urgent, critical } }. */
+  async urgentByLocation() {
+    const rows = await query(
+      supabase.from('tickets').select('location_id, severity').neq('status', 'resolved').in('severity', ['high', 'critical']),
+      'Could not load urgent issues',
+    )
+    const byId = {}
+    for (const { location_id, severity } of rows ?? []) {
+      const entry = (byId[location_id] ??= { urgent: 0, critical: 0 })
+      entry.urgent += 1
+      if (severity === 'critical') entry.critical += 1
+    }
+    return byId
+  },
+
   async remove(id) {
     return query(supabase.from('locations').delete().eq('id', id), 'Could not delete the location')
   },

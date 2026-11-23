@@ -81,10 +81,11 @@ function seeded(str) {
 
 /**
  * @param {Array} locations rows from `locations` (id, code, name, building, floor, type)
- * @param {Record<string, number>} openById open ticket count per location id
- * @returns {{ rooms: Array, unplaced: Array }} rooms carry the location fields plus slot geometry and `level`
+ * @param {Record<string, { open?: number, urgent?: number, critical?: number }>} countsById ticket counts per location id
+ * @returns {{ rooms: Array, unplaced: Array }} rooms carry the location fields, the counts, slot geometry and `level`
  */
-export function placeLocations(locations, openById = {}) {
+export function placeLocations(locations, countsById = {}) {
+  const counts = (id) => ({ open: 0, urgent: 0, critical: 0, ...countsById[id] })
   const free = new Set(ROOM_SLOTS.map((_, i) => i))
   const rooms = []
   const unplaced = []
@@ -96,12 +97,12 @@ export function placeLocations(locations, openById = {}) {
     const pool = [...free].filter((i) => wanted === null || ROOM_SLOTS[i].level === wanted)
     const choices = pool.length ? pool : [...free]
     if (!choices.length) {
-      unplaced.push({ ...loc, open: openById[loc.id] ?? 0 })
+      unplaced.push({ ...loc, ...counts(loc.id) })
       continue
     }
     const slotIndex = choices[Math.floor(rand() * choices.length)]
     free.delete(slotIndex)
-    rooms.push({ ...loc, ...ROOM_SLOTS[slotIndex], open: openById[loc.id] ?? 0 })
+    rooms.push({ ...loc, ...ROOM_SLOTS[slotIndex], ...counts(loc.id) })
   }
   return { rooms, unplaced }
 }

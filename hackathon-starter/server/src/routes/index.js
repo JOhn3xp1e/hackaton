@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import healthRoutes from './health.routes.js'
 import triageRoutes from './triage.routes.js'
+import chatRoutes from './chat.routes.js'
 
 /**
  * API router — mounted at /api in app.js.
@@ -11,5 +12,6 @@ const router = Router()
 
 router.use('/health', healthRoutes)
 router.use('/triage', triageRoutes)
+router.use('/chat', chatRoutes)
 
 export default router

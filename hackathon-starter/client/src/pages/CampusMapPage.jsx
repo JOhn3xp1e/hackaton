@@ -5,10 +5,9 @@ import { CampusMap } from '@/components/campus/CampusMap'
 import { LocationFormModal } from '@/components/locations/LocationFormModal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuth } from '@/providers/AuthProvider'
-import { LEVELS, ROOM_TYPES, levelLabel, placeLocations } from '@/data/campusLayout'
+import { LEVELS, ROOM_TYPES, levelLabel } from '@/data/campusLayout'
 import { locationsService } from '@/services/locationsService'
-import { analyticsService } from '@/services/analyticsService'
-import { useAsync } from '@/hooks/useAsync'
+import { useCampusRooms } from '@/hooks/useCampusRooms'
 import { useDebounce } from '@/hooks/useDebounce'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
@@ -48,18 +47,11 @@ export default function CampusMapPage() {
   const [query, setQuery] = useState('')
   const debounced = useDebounce(query, 150)
 
-  const locations = useAsync(() => locationsService.list(), [], { initialData: [] })
-  // Open-issue counts are a bonus: if they fail to load, the map still works without them.
-  const stats = useAsync(() => analyticsService.byLocation(), [], { initialData: [] })
+  const { rooms, unplaced, urgentRooms, locations } = useCampusRooms({ channel: 'campus-map' })
 
   useEffect(() => {
     if (locations.error) toast.error('Could not load rooms', { description: locations.error.message })
   }, [locations.error, toast])
-
-  const { rooms, unplaced } = useMemo(() => {
-    const openById = Object.fromEntries((stats.data ?? []).map((s) => [s.location_id, s.open]))
-    return placeLocations(locations.data ?? [], openById)
-  }, [locations.data, stats.data])
 
   const listed = useMemo(() => {
     const q = debounced.trim().toLowerCase()
@@ -293,6 +285,7 @@ export default function CampusMapPage() {
               {!loadingRooms && !locations.error && (
                 <span className="text-[12px] text-muted-foreground">
                   {rooms.length} on map{unplaced.length > 0 && ` · ${unplaced.length} not placed`}
+                  {urgentRooms.length > 0 && <span className="font-medium text-red-600"> · {urgentRooms.length} urgent</span>}
                 </span>
               )}
             </div>
@@ -399,10 +392,22 @@ export default function CampusMapPage() {
                           {room.unplaced ? 'Not on map' : levelLabel(room.level)} · {room.code}
                         </span>
                       </span>
-                      {room.open > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-warning" title={`${room.open} open issues`}>
-                          <CircleAlert className="size-3.5" /> {room.open}
+                      {room.urgent > 0 ? (
+                        <span
+                          className={cn(
+                            'grid size-5 shrink-0 place-items-center rounded-full text-[12px] font-black text-white',
+                            room.critical > 0 ? 'bg-red-600' : 'bg-orange-500',
+                          )}
+                          title={`${room.urgent} urgent ${room.urgent === 1 ? 'issue' : 'issues'}${room.critical ? ` (${room.critical} critical)` : ''}`}
+                        >
+                          !
                         </span>
+                      ) : (
+                        room.open > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[12px] font-medium text-warning" title={`${room.open} open issues`}>
+                            <CircleAlert className="size-3.5" /> {room.open}
+                          </span>
+                        )
                       )}
                     </button>
                   </li>

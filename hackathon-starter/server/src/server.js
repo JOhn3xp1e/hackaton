@@ -9,6 +9,7 @@ const server = app.listen(env.port, () => {
   console.log(`     health   → http://localhost:${env.port}/api/health`)
   console.log(`     supabase → ${isSupabaseEnabled ? 'configured' : 'NOT configured (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env)'}`)
   console.log(`     ai       → ${env.anthropicApiKey ? 'Claude triage enabled' : 'disabled (set ANTHROPIC_API_KEY in .env)'}`)
+  console.log(`     chat     → ${env.groq.apiKey ? `Groq assistant enabled (${env.groq.model})` : 'disabled (set GROQ_API_KEY in .env)'}`)
   console.log(`     cors     → ${env.corsOrigins.join(', ')}\n`)
 })
 

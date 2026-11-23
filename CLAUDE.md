@@ -39,7 +39,7 @@ This is useful because it addresses a problem that your existing school platform
 - **Frontend:** React 19 (Vite), **JavaScript** (.jsx — decided to stay JS for speed; shapes enforced with Zod), Tailwind CSS v4, Lucide Icons, shadcn/ui conventions, Motion, React Router 7, `qrcode`
 - **Backend:** Node.js, Express 5 (JavaScript, ESM)
 - **Database & Auth:** Supabase (PostgreSQL, Supabase Auth, Storage bucket `ticket-photos`, Realtime, `@supabase/supabase-js`)
-- **AI / External APIs:** Anthropic SDK (`@anthropic-ai/sdk`) — Claude auto-triage at `POST /api/triage`
+- **AI / External APIs:** Anthropic SDK (`@anthropic-ai/sdk`) — Claude auto-triage at `POST /api/triage`; Groq (plain `fetch`, OpenAI-compatible, default model `openai/gpt-oss-120b`) — staff assistant at `POST /api/chat`
 
 # Architecture & Boundaries
 - **Frontend-to-Supabase:** Use the Supabase client directly in React for standard CRUD operations, Auth, and Realtime listeners. Do NOT build Express endpoints for basic database reads/writes.
@@ -54,6 +54,7 @@ This is useful because it addresses a problem that your existing school platform
 - **"Report an issue" is for students only.** It's hidden from signed-in staff in the sidebar (`hideForRoles`), and staff opening `/` are redirected to `/dashboard`. Room QR links (`/r/:code`) still work for everyone.
 - **Credits:** staff mark a student report `valid` or `invalid` (`tickets.validity`). Valid = +10, plus +5 when resolved. Computed by the `student_credits` view, mirrored in `CREDITS` in `client/src/lib/constants.js`. Shown to staff on `/leaderboard`.
 - **`POST /api/triage` is public and rate-limited per IP.**
+- **CampusFix Assistant (`POST /api/chat`) is staff-only.** The `requireStaff` middleware checks the Supabase Bearer token and role. Groq answers through read-only DB tools (`server/src/services/chatTools.js`) and never writes data. UI: floating `components/assistant/ChatWidget.jsx`, rendered in `AppLayout` for staff. Env: `GROQ_API_KEY`, `GROQ_MODEL`.
 
 # Directory Structure
 All app code lives in `hackathon-starter/`:

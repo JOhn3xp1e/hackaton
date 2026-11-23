@@ -9,6 +9,7 @@ import { ticketsService } from '@/services/ticketsService'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
 import { TicketsTable } from '@/components/tickets/TicketsTable'
+import { CampusOverviewPanel } from '@/components/campus/CampusOverviewPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -103,6 +104,8 @@ export default function StaffDashboard() {
           <ArrowRight className="size-4 shrink-0" />
         </Link>
       )}
+
+      <CampusOverviewPanel className="mb-6" />
 
       <Card>
         <CardHeader

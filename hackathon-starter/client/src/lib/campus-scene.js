@@ -13,7 +13,8 @@ import * as THREE from 'three'
  * @param {(room: object|null, x: number, y: number) => void} [options.onSelect] click / tap without dragging
  */
 export function createCampusScene(canvas, options) {
-  const { rooms = [], roomTypes, onHover = () => {}, onSelect = () => {}, light = 'noon' } = options
+  // interactive: false = fixed camera, no input, renders only when something changes (dashboard preview).
+  const { rooms = [], roomTypes, onHover = () => {}, onSelect = () => {}, light = 'noon', interactive = true } = options
   const box0 = canvas.parentElement
   const abort = new AbortController()
   const on = (type, fn, opts = {}) => canvas.addEventListener(type, fn, { ...opts, signal: abort.signal })
@@ -188,16 +189,26 @@ export function createCampusScene(canvas, options) {
   const slat=new THREE.BoxGeometry(0.07,2.1,0.07);for(let x=gx0;x<gx1;x+=0.2){const s=new THREE.Mesh(slat,M.gate);s.position.set(x,1.1,-1.7);s.castShadow=true;bld.add(s);}
   for(const y of[0.25,1.15,2.15])box(gx1-gx0,0.1,0.1,M.gate,(gx0+gx1)/2,y,-1.7,bld);
 
-  /* ground around the building, so the see-through view has something to stand on */
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(140,64),col('#eef0f2',1));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
-
   /* ---------- rooms: one translucent, outlined volume per room ---------- */
-  // Each room needs { id, type, level, x, y, z, w, h, d }; everything else is passed back on hover.
+  // Each room needs { id, type, level, x, y, z, w, h, d }; `urgent` / `critical` counts add an alert marker.
+  // Everything else is passed back on hover.
   const roomGroup=new THREE.Group();scene.add(roomGroup);
-  let roomMeshes=[];
+  let roomMeshes=[],markers=[],dirty=true;   // dirty: static mode redraws only when something changed
   let hoveredId=null,highlightId=null,floorFilter=null;
-  function disposeRooms(){for(const m of roomMeshes){m.geometry.dispose();m.material.dispose();m.children.forEach(e=>{e.geometry.dispose();e.material.dispose();});roomGroup.remove(m);}roomMeshes=[];}
+  // "!" alert badges: red for critical, orange for high. Drawn on top of everything so walls never hide them.
+  const alertTex=(fill)=>{const t=canvasTex(128,128,(g,w,h)=>{const c=w/2;
+    g.fillStyle='rgba(0,0,0,.25)';g.beginPath();g.arc(c,c+4,c-10,0,Math.PI*2);g.fill();
+    g.fillStyle=fill;g.beginPath();g.arc(c,c,c-10,0,Math.PI*2);g.fill();g.strokeStyle='#fff';g.lineWidth=7;g.stroke();
+    g.fillStyle='#fff';g.font='900 74px Inter, Arial, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('!',c,c+4);});
+    t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;return t;};
+  const ALERT={critical:alertTex('#dc2626'),high:alertTex('#f97316')};
+  function disposeRooms(){for(const m of roomMeshes){m.geometry.dispose();m.material.dispose();m.children.forEach(e=>{e.geometry.dispose();e.material.dispose();});roomGroup.remove(m);}roomMeshes=[];
+    for(const s of markers){s.material.dispose();roomGroup.remove(s);}markers=[];}
   function setRooms(list){disposeRooms();
+    for(const room of list){if(!(room.urgent>0))continue;
+      const s=new THREE.Sprite(new THREE.SpriteMaterial({map:room.critical>0?ALERT.critical:ALERT.high,depthTest:false,depthWrite:false,transparent:true}));
+      s.position.set(room.x,room.y+room.h+1.6,room.z);s.scale.setScalar(2.4);s.renderOrder=10;s.userData.room=room;s.userData.phase=markers.length*0.7;
+      roomGroup.add(s);markers.push(s);}
     for(const room of list){
       const color=new THREE.Color((roomTypes[room.type]||{}).color||'#94a3b8');
       const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.35,roughness:.6,transparent:true,opacity:0.5,envMapIntensity:1});
@@ -207,7 +218,7 @@ export function createCampusScene(canvas, options) {
       mesh.add(edges);roomGroup.add(mesh);roomMeshes.push(mesh);}
     if(hoveredId&&!roomMeshes.some(m=>m.userData.room.id===hoveredId)){hoveredId=null;onHover(null,0,0);}
     paintRooms();applyRoomVisibility();}
-  function paintRooms(){for(const m of roomMeshes){const id=m.userData.room.id,hot=id===hoveredId||id===highlightId;
+  function paintRooms(){dirty=true;for(const m of roomMeshes){const id=m.userData.room.id,hot=id===hoveredId||id===highlightId;
     m.material.opacity=hot?0.88:0.5;m.material.emissiveIntensity=hot?1.1:0.35;}}
 
   /* ---------- see-through walls ---------- */
@@ -219,7 +230,8 @@ export function createCampusScene(canvas, options) {
     shellMats.forEach(m=>{const b=m.userData.base;m.transparent=xray||b.transparent;m.opacity=xray?b.opacity*0.14:b.opacity;m.depthWrite=xray?false:b.depthWrite;m.needsUpdate=true;});
     bld.traverse(o=>{if(o.isMesh)o.castShadow=xray?false:o.userData.cast;});
     applyRoomVisibility();}
-  function applyRoomVisibility(){for(const m of roomMeshes)m.visible=xray&&(floorFilter===null||m.userData.room.level===floorFilter);
+  function applyRoomVisibility(){dirty=true;for(const m of roomMeshes)m.visible=xray&&(floorFilter===null||m.userData.room.level===floorFilter);
+    for(const s of markers)s.visible=floorFilter===null||s.userData.room.level===floorFilter;   // alerts stay visible with solid walls
     if(hoveredId&&!roomMeshes.some(m=>m.visible&&m.userData.room.id===hoveredId)){hoveredId=null;paintRooms();onHover(null,0,0);}}
 
   /* ---------- lighting presets ---------- */
@@ -233,7 +245,7 @@ export function createCampusScene(canvas, options) {
     M.glass.envMapIntensity=1.25*Math.max(p.env,.7);
     canopyLights.forEach(l=>l.intensity=p.lamps*38);lamps.forEach(l=>l.material.color.setScalar(0.25+0.75*Math.max(p.lamps,.15)));
     M.glassLit.emissiveIntensity=p.lamps*1.6;
-    glassAll.forEach((g,i)=>{g.material=(p.lamps>0.9&&(i*7+3)%5<3)?M.glassLit:M.glass;});}
+    glassAll.forEach((g,i)=>{g.material=(p.lamps>0.9&&(i*7+3)%5<3)?M.glassLit:M.glass;});dirty=true;}
 
   /* ---------- orbit camera, framed on the building's bounding sphere ---------- */
   scene.updateMatrixWorld(true);
@@ -254,10 +266,11 @@ export function createCampusScene(canvas, options) {
   const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
   function pick(clientX,clientY){const r=canvas.getBoundingClientRect();
     ndc.set(((clientX-r.left)/r.width)*2-1,-((clientY-r.top)/r.height)*2+1);raycaster.setFromCamera(ndc,camera);
-    const hit=raycaster.intersectObjects(roomMeshes.filter(m=>m.visible),false)[0];
+    const hit=raycaster.intersectObjects(markers.filter(s=>s.visible),false)[0]||raycaster.intersectObjects(roomMeshes.filter(m=>m.visible),false)[0];
     return {room:hit?hit.object.userData.room:null,x:clientX-r.left,y:clientY-r.top};}
   function hover(clientX,clientY){const {room,x,y}=pick(clientX,clientY);const id=room?room.id:null;
     if(id!==hoveredId){hoveredId=id;paintRooms();}canvas.style.cursor=room?'pointer':'grab';onHover(room,x,y);}
+  if(interactive){
   on('contextmenu',e=>e.preventDefault());
   on('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});down={x:e.clientX,y:e.clientY,id:e.pointerId};
     mode=(e.button===2||e.shiftKey)?'pan':'orbit';if(ptrs.size===2){const [a,b]=[...ptrs.values()];lastPinch=Math.hypot(a.x-b.x,a.y-b.y);down=null;}});
@@ -275,21 +288,26 @@ export function createCampusScene(canvas, options) {
   on('wheel',e=>{e.preventDefault();goal.r=Math.max(14,Math.min(260,goal.r*Math.exp(e.deltaY*0.0012)));},{passive:false});
   function pan(dx,dy){const s=goal.r*0.0016;goal.t.addScaledVector(new THREE.Vector3(Math.cos(sph.theta),0,-Math.sin(sph.theta)),-dx*s);goal.t.y=Math.max(0,goal.t.y+dy*s);}
   canvas.style.cursor='grab';canvas.style.touchAction='none';
+  }
 
   /* ---------- resize + render loop ---------- */
   let fitted=false;
-  function resize(){const w=box0.clientWidth||1,h=box0.clientHeight||1;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  function resize(){dirty=true;const w=box0.clientWidth||1,h=box0.clientHeight||1;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
     const prev=fitR;fitR=fitDistance(w/h);if(!fitted){goal.r=sph.r=fitR;fitted=true;}else if(Math.abs(goal.r-prev)<0.01)goal.r=fitR;}
   const ro=new ResizeObserver(resize);ro.observe(box0);resize();
   setLight(light);setXray(true);setRooms(rooms);
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   let raf=0,alive=true,spin=false;
-  function frame(){
+  function frame(now){
+    if(alive)raf=requestAnimationFrame(frame);
+    if(!interactive&&!dirty)return;   // static: nothing moves, so only redraw after a change
     if(spin)goal.theta+=0.0012;   // ≈ one turn every 90 s at 60 fps
-    const k=reduce?1:0.1;
+    const k=reduce||!interactive?1:0.1;
     sph.r+=(goal.r-sph.r)*k;sph.theta+=(goal.theta-sph.theta)*k;sph.phi+=(goal.phi-sph.phi)*k;target.lerp(goal.t,k);
     camera.position.set(target.x+sph.r*Math.sin(sph.phi)*Math.sin(sph.theta),Math.max(1.5,target.y+sph.r*Math.cos(sph.phi)),target.z+sph.r*Math.sin(sph.phi)*Math.cos(sph.theta));
-    camera.lookAt(target);renderer.render(scene,camera);if(alive)raf=requestAnimationFrame(frame);}
+    camera.lookAt(target);
+    if(interactive&&!reduce)for(const s of markers)s.scale.setScalar(2.4*(1+0.14*Math.sin((now||0)/180+s.userData.phase)));   // pulse
+    renderer.render(scene,camera);dirty=false;}
   frame();
 
   return {
@@ -301,6 +319,7 @@ export function createCampusScene(canvas, options) {
     setHighlight(id) { highlightId = id ?? null; paintRooms(); },
     dispose() {
       alive = false; cancelAnimationFrame(raf); ro.disconnect(); abort.abort();
+      Object.values(ALERT).forEach((t) => t.dispose());
       Object.values(skyCache).forEach((s) => { s.bg.dispose(); s.env.dispose(); });
       pmrem.dispose();
       scene.traverse((o) => {

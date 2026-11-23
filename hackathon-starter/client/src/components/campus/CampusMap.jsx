@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
  * The parent sizes it. Exposes the scene controls through `ref`:
  *   resetView(), focusRoom(id), setHighlight(id), setFloor(level | null), setXray(bool), setAutoRotate(bool), setLight(preset)
  */
-export const CampusMap = forwardRef(function CampusMap({ rooms, className, onSelect, onReady, onError }, ref) {
+export const CampusMap = forwardRef(function CampusMap({ rooms, className, interactive = true, onSelect, onReady, onError }, ref) {
   const canvasRef = useRef(null)
   const sceneRef = useRef(null)
   const tipRef = useRef(null)
@@ -43,6 +43,7 @@ export const CampusMap = forwardRef(function CampusMap({ rooms, className, onSel
       scene = createCampusScene(canvas, {
         rooms: latest.current.rooms,
         roomTypes: ROOM_TYPES,
+        interactive,
         onHover: (room, x, y) => {
           posRef.current = { x, y }
           placeTip()
@@ -60,7 +61,7 @@ export const CampusMap = forwardRef(function CampusMap({ rooms, className, onSel
       scene?.dispose()
       sceneRef.current = null
     }
-  }, [])
+  }, [interactive])
 
   // New or refetched locations: swap only the room volumes.
   useEffect(() => {
@@ -103,6 +104,20 @@ export const CampusMap = forwardRef(function CampusMap({ rooms, className, onSel
                 <span className="font-mono text-[11px] text-muted-foreground">{hovered.code}</span>
               </div>
               <p className="mt-0.5 text-[12.5px] text-muted-foreground">{where || levelLabel(hovered.level)}</p>
+              {hovered.urgent > 0 && (
+                <div
+                  className={cn(
+                    'mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium text-white',
+                    hovered.critical > 0 ? 'bg-red-600' : 'bg-orange-500',
+                  )}
+                >
+                  <span className="grid size-4 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-current">
+                    <span className={hovered.critical > 0 ? 'text-red-600' : 'text-orange-500'}>!</span>
+                  </span>
+                  {hovered.urgent} urgent {hovered.urgent === 1 ? 'issue' : 'issues'}
+                  {hovered.critical > 0 && ` · ${hovered.critical} critical`}
+                </div>
+              )}
               <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2 rounded-full" style={{ background: type?.color }} aria-hidden />

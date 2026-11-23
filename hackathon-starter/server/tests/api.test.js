@@ -61,6 +61,20 @@ describe('triage', () => {
   })
 })
 
+describe('chat', () => {
+  // Never reaches Groq: every request here is rejected by auth first.
+  test('POST /chat without a token → 401', async () => {
+    const { status, body } = await call('POST', '/chat', { messages: [{ role: 'user', content: 'How many open tickets?' }] })
+    assert.equal(status, 401)
+    assert.equal(body.error.code, 'UNAUTHORIZED')
+  })
+
+  test('POST /chat with a bogus token → 401 or 503 (no Supabase)', async () => {
+    const { status } = await call('POST', '/chat', { messages: [] }, { Authorization: 'Bearer not-a-real-token' })
+    assert.ok([401, 503].includes(status), `got ${status}`)
+  })
+})
+
 describe('rate limit', () => {
   test('POST /triage is limited to 10 requests per window → 429', async () => {
     let last
