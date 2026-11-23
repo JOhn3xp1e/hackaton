@@ -17,6 +17,10 @@ const schema = z.object({
   // Newer Supabase key names (sb_secret_… / sb_publishable_…) are accepted too.
   SUPABASE_SECRET_KEY: z.string().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  // Fallback: on Vercel the client's VITE_ vars are also visible to the API
+  // function, so the server works even if only those are set.
+  VITE_SUPABASE_URL: z.string().url().optional().or(z.literal('')),
+  VITE_SUPABASE_ANON_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().optional(),
@@ -44,8 +48,14 @@ export const env = {
     model: e.GROQ_MODEL || 'openai/gpt-oss-120b',
   },
   supabase: {
-    url: e.SUPABASE_URL || '',
-    key: e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SECRET_KEY || e.SUPABASE_ANON_KEY || e.SUPABASE_PUBLISHABLE_KEY || '',
+    url: e.SUPABASE_URL || e.VITE_SUPABASE_URL || '',
+    key:
+      e.SUPABASE_SERVICE_ROLE_KEY ||
+      e.SUPABASE_SECRET_KEY ||
+      e.SUPABASE_ANON_KEY ||
+      e.SUPABASE_PUBLISHABLE_KEY ||
+      e.VITE_SUPABASE_ANON_KEY ||
+      '',
     usingServiceRole: Boolean(e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SECRET_KEY),
   },
 }
