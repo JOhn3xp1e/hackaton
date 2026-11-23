@@ -44,7 +44,10 @@ export default function App() {
           {/* QR codes point here: /r/CL-LAB-2 (room) and /e/CL1-PC-15 (one item) */}
           <Route path="r/:locationCode" element={<ReportPage />} />
           <Route path="e/:equipmentCode" element={<ReportPage />} />
-          {/* Reached only via the "Track it" link after submitting a report */}
+          {/* Reporter's progress page: "Track it" after submitting + the link staff email */}
+          <Route path="track/:ticketNumber" element={<TicketPage publicView />} />
+          <Route path="track" element={<Navigate to="/" replace />} />
+          {/* Staff workspace view of a ticket (public visitors get the same read-only view) */}
           <Route path="tickets/:ticketNumber" element={<TicketPage />} />
 
           {/* Teachers & staff */}

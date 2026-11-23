@@ -26,7 +26,7 @@ function composeEmail(ticket, message, staff) {
     `Status: ${STATUSES[ticket.status]?.label ?? ticket.status}`,
     ...(message.trim() ? ['', message.trim()] : []),
     '',
-    `Follow the repair here: ${config.publicAppUrl}/tickets/${ticket.ticket_number}`,
+    `Follow the repair here: ${config.publicAppUrl}/track/${ticket.ticket_number}`,
     '',
     'Thank you for reporting it!',
     `${staff?.full_name || 'CampusFix team'}${staff?.role ? ` · ${ROLES[staff.role]}` : ''}`,

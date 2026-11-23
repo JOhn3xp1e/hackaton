@@ -66,7 +66,7 @@ export function ReportSuccess({ ticket, onReportAnother }) {
             Report another
           </Button>
           <Button asChild>
-            <Link to={`/tickets/${ticket.ticket_number}`}>
+            <Link to={`/track/${ticket.ticket_number}`}>
               Track it <ArrowRight />
             </Link>
           </Button>

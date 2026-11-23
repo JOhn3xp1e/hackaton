@@ -51,5 +51,6 @@ export const routeLabels = {
   '/campus-map': 'Campus map',
   '/equipment': 'Equipment',
   '/e': 'Report',
+  '/track': 'Track report',
   '/settings': 'Settings',
 }

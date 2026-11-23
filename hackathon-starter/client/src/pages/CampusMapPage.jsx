@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { CircleAlert, Eye, EyeOff, MapPin, Maximize2, Pencil, Plus, QrCode, RotateCw, SearchX, SquarePen, Sun, Sunrise, Sunset, Trash2 } from 'lucide-react'
 import { CampusMap } from '@/components/campus/CampusMap'
+import { RoomIssues } from '@/components/campus/RoomIssues'
 import { LocationFormModal } from '@/components/locations/LocationFormModal'
 import { downloadQr, reportUrlFor } from '@/components/locations/QrImage'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -295,7 +296,7 @@ export default function CampusMapPage() {
           </div>
 
           {selected && (
-            <div className="grid gap-2 border-b border-border bg-accent/40 p-4">
+            <div className="grid shrink-0 gap-2 border-b border-border bg-accent/40 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="grid min-w-0 gap-0.5">
                   <p className="eyebrow">Selected</p>
@@ -351,10 +352,11 @@ export default function CampusMapPage() {
                 )}
                 {selected.open > 0 && <Badge variant="warning">{selected.open} open</Badge>}
               </div>
+              <RoomIssues key={selected.id} location={selected} />
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-2">
             {loadingRooms ? (
               <div className="grid gap-2 p-2">
                 {Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-10" />)}

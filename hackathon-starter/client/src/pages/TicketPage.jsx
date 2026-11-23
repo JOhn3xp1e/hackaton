@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { BadgeCheck, Building2, CalendarClock, Cpu, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarClock, Cpu, Eye, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
 import { CATEGORIES, ROLES, VALIDITY } from '@/lib/constants'
@@ -36,10 +36,16 @@ function Detail({ icon: Icon, label, children }) {
   )
 }
 
-export default function TicketPage() {
+/**
+ * One report. `/tickets/:n` is the staff workspace view; `/track/:n` is the
+ * reporter's progress page (the link we email and show after submitting) and
+ * always renders the public view, even for signed-in staff.
+ */
+export default function TicketPage({ publicView = false }) {
   const { ticketNumber } = useParams()
   const { user, isStaff, isAdmin } = useAuth()
-  const staffView = Boolean(user && isStaff)
+  const signedInStaff = Boolean(user && isStaff)
+  const staffView = signedInStaff && !publicView
   const [flash, setFlash] = useState(false)
 
   const { data: ticket, isLoading, error, refetch } = useAsync(() => ticketsService.getByNumber(ticketNumber), [ticketNumber])
@@ -80,7 +86,7 @@ export default function TicketPage() {
           staffView ? { label: 'Tickets', to: '/tickets' } : { label: 'Report an issue', to: '/' },
           { label: ticket.ticket_number },
         ]}
-        eyebrow={ticket.ticket_number}
+        eyebrow={publicView ? `Your report · ${ticket.ticket_number}` : ticket.ticket_number}
         title={ticket.title}
         description={`${ticket.location?.name}${ticket.equipment ? ` · ${ticket.equipment.short_code} ${ticket.equipment.name}` : ticket.asset_label ? ` · ${ticket.asset_label}` : ''} · reported ${timeAgo(ticket.created_at)}`}
         actions={
@@ -91,6 +97,16 @@ export default function TicketPage() {
           </div>
         }
       />
+
+      {publicView && signedInStaff && (
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-info/25 bg-info/8 px-4 py-3 text-sm">
+          <Eye className="size-4 shrink-0 text-info" />
+          <span className="flex-1">This is the progress page the reporter sees from the emailed link.</span>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/tickets/${ticket.ticket_number}`}>Open staff view</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
         <div className="grid gap-6">
