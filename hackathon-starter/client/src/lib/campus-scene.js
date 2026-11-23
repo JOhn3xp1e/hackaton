@@ -189,7 +189,7 @@ export function createCampusScene(canvas, options) {
   for(const y of[0.25,1.15,2.15])box(gx1-gx0,0.1,0.1,M.gate,(gx0+gx1)/2,y,-1.7,bld);
 
   /* ground around the building, so the see-through view has something to stand on */
-  const ground=new THREE.Mesh(new THREE.CircleGeometry(140,64),col('#7d8a70',1));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
+  const ground=new THREE.Mesh(new THREE.CircleGeometry(140,64),col('#eef0f2',1));ground.rotation.x=-Math.PI/2;ground.position.y=-0.02;ground.receiveShadow=true;scene.add(ground);
 
   /* ---------- rooms: one translucent, outlined volume per room ---------- */
   // Each room needs { id, type, level, x, y, z, w, h, d }; everything else is passed back on hover.
@@ -223,8 +223,9 @@ export function createCampusScene(canvas, options) {
     if(hoveredId&&!roomMeshes.some(m=>m.visible&&m.userData.room.id===hoveredId)){hoveredId=null;paintRooms();onHover(null,0,0);}}
 
   /* ---------- lighting presets ---------- */
+  const WHITE=new THREE.Color(0xffffff);
   function setLight(k){const p=PRESETS[k],s=getSky(k);
-    scene.background=s.bg;scene.environment=s.env;
+    scene.background=WHITE;scene.environment=s.env;   // plain white backdrop; the painted sky still drives reflections
     const d=new THREE.Vector3(...p.sunDir).normalize();sun.position.copy(sun.target.position).addScaledVector(d,180);
     sun.color.copy(lin(p.sunColor));sun.intensity=p.sunI;hemi.color.copy(lin(p.hemiSky));hemi.groundColor.copy(lin(p.hemiGround));hemi.intensity=p.hemiI;
     renderer.toneMappingExposure=p.exposure;
