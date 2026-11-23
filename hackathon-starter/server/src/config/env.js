@@ -14,6 +14,9 @@ const schema = z.object({
   SUPABASE_URL: z.string().url().optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
+  // Newer Supabase key names (sb_secret_… / sb_publishable_…) are accepted too.
+  SUPABASE_SECRET_KEY: z.string().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
 })
 
@@ -36,7 +39,7 @@ export const env = {
   anthropicApiKey: e.ANTHROPIC_API_KEY || '',
   supabase: {
     url: e.SUPABASE_URL || '',
-    key: e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_ANON_KEY || '',
-    usingServiceRole: Boolean(e.SUPABASE_SERVICE_ROLE_KEY),
+    key: e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SECRET_KEY || e.SUPABASE_ANON_KEY || e.SUPABASE_PUBLISHABLE_KEY || '',
+    usingServiceRole: Boolean(e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_SECRET_KEY),
   },
 }
