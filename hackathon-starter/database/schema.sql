@@ -182,6 +182,12 @@ alter table public.tickets add constraint tickets_validity_check check (validity
 alter table public.tickets drop constraint if exists tickets_reporter_present;
 alter table public.tickets add constraint tickets_reporter_present check (reporter_id is not null or student_no is not null);
 
+-- Optional: reporters who want updates leave an email; staff send it from Gmail.
+alter table public.tickets add column if not exists reporter_email text;
+alter table public.tickets drop constraint if exists tickets_reporter_email_format;
+alter table public.tickets add constraint tickets_reporter_email_format
+  check (reporter_email is null or (char_length(reporter_email) <= 254 and reporter_email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'));
+
 -- v3: the specific piece of equipment that is broken (optional for old tickets).
 alter table public.tickets add column if not exists equipment_id uuid
   constraint tickets_equipment_id_fkey references public.equipment (id) on delete set null;

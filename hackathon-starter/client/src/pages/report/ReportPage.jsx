@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
-import { EyeOff, MapPin, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
+import { EyeOff, Mail, MapPin, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/components/ui/toast'
-import { CATEGORIES, CATEGORY_KEYS, CREDITS, LOCATION_TYPES, ROLES, SEVERITIES, SEVERITY_KEYS, STUDENT_NO_PATTERN } from '@/lib/constants'
+import { CATEGORIES, CATEGORY_KEYS, CREDITS, LOCATION_TYPES, ROLES, SEVERITIES, SEVERITY_KEYS, STUDENT_NO_PATTERN, EMAIL_MAX, EMAIL_PATTERN } from '@/lib/constants'
 import { zodErrorsToObject } from '@/lib/schemas'
 import { useStudentIdentity } from '@/lib/studentIdentity'
 import { cn } from '@/lib/utils'
@@ -41,6 +41,11 @@ const studentSchema = z.object({
   studentNo: z.string().trim().regex(STUDENT_NO_PATTERN, 'Enter your student number (e.g. 2000XXXXXX)'),
   reporterName: z.string().trim().max(80, 'Keep it under 80 characters'),
   isAnonymous: z.boolean(),
+  reporterEmail: z
+    .string()
+    .trim()
+    .max(EMAIL_MAX, 'Email is too long')
+    .refine((v) => !v || EMAIL_PATTERN.test(v), 'Enter a valid email, or leave it empty'),
 })
 
 const SECTION = 'border-b border-border px-5 py-5 last:border-b-0 sm:px-6'
@@ -58,6 +63,7 @@ export default function ReportPage() {
     studentNo: identity.studentNo,
     reporterName: identity.name,
     isAnonymous: identity.anonymous,
+    reporterEmail: identity.email,
   })
   const [values, setValues] = useState(EMPTY)
   const [equipment, setEquipment] = useState(null) // picked item, includes its location
@@ -156,11 +162,19 @@ export default function ReportPage() {
         ...parsed.data,
         locationId: equipment.location_id,
         assetLabel: equipment.name,
-        ...(asStaff ? { reporterId: user.id } : { studentNo, reporterName: who.data.reporterName, isAnonymous: who.data.isAnonymous }),
+        ...(asStaff
+          ? { reporterId: user.id }
+          : {
+              studentNo,
+              reporterName: who.data.reporterName,
+              isAnonymous: who.data.isAnonymous,
+              reporterEmail: who.data.reporterEmail,
+            }),
         photoUrls,
         ai,
       })
-      if (!asStaff) saveIdentity({ studentNo, name: who.data.reporterName, anonymous: who.data.isAnonymous })
+      if (!asStaff)
+        saveIdentity({ studentNo, name: who.data.reporterName, anonymous: who.data.isAnonymous, email: who.data.reporterEmail })
       setCreated({
         ...ticket,
         title: parsed.data.title,
@@ -292,6 +306,24 @@ export default function ReportPage() {
                     </span>
                   </span>
                 </button>
+                <Field
+                  label="Email for updates (optional)"
+                  htmlFor="reporterEmail"
+                  error={errors.reporterEmail}
+                  hint="Leave it empty if you don't want emails. Only staff can see it; they'll email you when there's news about the repair."
+                >
+                  <Input
+                    id="reporterEmail"
+                    type="email"
+                    inputMode="email"
+                    value={student.reporterEmail}
+                    onChange={(e) => setStudentField('reporterEmail', e.target.value)}
+                    placeholder="you@gmail.com"
+                    autoComplete="email"
+                    maxLength={EMAIL_MAX}
+                    leftIcon={<Mail />}
+                  />
+                </Field>
               </>
             )}
           </FormSection>

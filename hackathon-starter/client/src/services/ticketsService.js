@@ -66,7 +66,7 @@ export const ticketsService = {
    * Either a signed-in staff member (reporterId) or a student (studentNo,
    * optional reporterName, isAnonymous) reports.
    * @param {{ locationId: string, reporterId?: string, studentNo?: string, reporterName?: string,
-   *           isAnonymous?: boolean, category: string, severity: string, title: string,
+   *           isAnonymous?: boolean, reporterEmail?: string, category: string, severity: string, title: string,
    *           description?: string, assetLabel?: string, equipmentId?: string, photoUrls?: string[],
    *           ai?: { summary: string, category: string, severity: string } | null }} input
    */
@@ -81,6 +81,7 @@ export const ticketsService = {
           student_no: input.studentNo ? input.studentNo.trim().toUpperCase() : null,
           reporter_name: input.reporterName?.trim() ?? '',
           is_anonymous: Boolean(input.isAnonymous),
+          reporter_email: input.reporterEmail?.trim() ? input.reporterEmail.trim().toLowerCase() : null,
           category: input.category,
           severity: input.severity,
           title: input.title,

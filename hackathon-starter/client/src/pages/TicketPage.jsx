@@ -16,6 +16,7 @@ import { StatusProgress } from '@/components/tickets/StatusProgress'
 import { Timeline } from '@/components/tickets/Timeline'
 import { StaffActions } from '@/components/tickets/StaffActions'
 import { DeleteTicket } from '@/components/tickets/DeleteTicket'
+import { EmailReporter } from '@/components/tickets/EmailReporter'
 import { PhotoGallery } from '@/components/tickets/PhotoGallery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -140,6 +141,7 @@ export default function TicketPage() {
         <aside className="grid gap-6 lg:sticky lg:top-24">
           {staffView && ticket.student_no && <ReviewPanel ticket={ticket} onChanged={refetch} />}
           {staffView && <StaffActions ticket={ticket} onChanged={refetch} />}
+          {staffView && <EmailReporter ticket={ticket} />}
           {staffView && isAdmin && <DeleteTicket ticket={ticket} />}
 
           <Card>
