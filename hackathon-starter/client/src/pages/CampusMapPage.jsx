@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { CircleAlert, Eye, EyeOff, MapPin, Maximize2, Pencil, Plus, RotateCw, SearchX, SquarePen, Sun, Sunrise, Sunset, Trash2 } from 'lucide-react'
+import { CircleAlert, Eye, EyeOff, MapPin, Maximize2, Pencil, Plus, QrCode, RotateCw, SearchX, SquarePen, Sun, Sunrise, Sunset, Trash2 } from 'lucide-react'
 import { CampusMap } from '@/components/campus/CampusMap'
 import { LocationFormModal } from '@/components/locations/LocationFormModal'
+import { downloadQr, reportUrlFor } from '@/components/locations/QrImage'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuth } from '@/providers/AuthProvider'
 import { LEVELS, ROOM_TYPES, levelLabel } from '@/data/campusLayout'
@@ -313,6 +314,20 @@ export default function CampusMapPage() {
                     <SquarePen /> Report an issue
                   </Link>
                 </Button>
+                <Tooltip content="Download room QR code" side="top">
+                  <Button
+                    size="icon-sm"
+                    variant="outline"
+                    aria-label={`Download QR code for ${selected.name}`}
+                    onClick={() =>
+                      downloadQr(reportUrlFor(selected.code), `campusfix-qr-${selected.code}.png`).catch((err) =>
+                        toast.error('Could not create the QR image', { description: err.message }),
+                      )
+                    }
+                  >
+                    <QrCode />
+                  </Button>
+                </Tooltip>
                 {isAdmin && (
                   <>
                     <Tooltip content="Edit location" side="top">

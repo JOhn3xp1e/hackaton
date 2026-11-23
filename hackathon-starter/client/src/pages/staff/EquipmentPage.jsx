@@ -131,7 +131,7 @@ export default function EquipmentPage() {
     <>
       <PageHeader
         breadcrumbs
-        title="Equipment & QR codes"
+        title="Equipment"
         description={`Stick a QR code on each computer, projector or aircon. Scanning it opens ${config.publicAppUrl.replace(/^https?:\/\//, '')}/e/… with the room and item filled in.`}
         actions={
           <>

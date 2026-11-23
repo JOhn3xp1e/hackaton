@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageLoader } from '@/components/feedback/LoadingSkeleton'
 import { RequireAuth } from '@/components/auth/RequireAuth'
@@ -16,8 +16,6 @@ const TicketPage = lazy(() => import('@/pages/TicketPage'))
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage'))
 const StaffDashboard = lazy(() => import('@/pages/staff/StaffDashboard'))
 const TicketsPage = lazy(() => import('@/pages/staff/TicketsPage'))
-const AnalyticsPage = lazy(() => import('@/pages/staff/AnalyticsPage'))
-const LocationsPage = lazy(() => import('@/pages/staff/LocationsPage'))
 const EquipmentPage = lazy(() => import('@/pages/staff/EquipmentPage'))
 const CampusMapPage = lazy(() => import('@/pages/CampusMapPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
@@ -55,12 +53,13 @@ export default function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="leaderboard" element={<LeaderboardPage />} />
             <Route path="tickets" element={<TicketsPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="campus-map" element={<CampusMapPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            {/* Old links: analytics moved onto the Overview, locations onto the Campus Map */}
+            <Route path="analytics" element={<Navigate to="/dashboard#analytics" replace />} />
+            <Route path="locations" element={<Navigate to="/campus-map" replace />} />
           </Route>
           <Route element={<RequireAuth roles={['admin']} />}>
-            <Route path="locations" element={<LocationsPage />} />
             <Route path="equipment" element={<EquipmentPage />} />
           </Route>
 
