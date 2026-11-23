@@ -8,7 +8,8 @@
 
 ---
 ## Links:
-Site: https://hackathon-starter-navy.vercel.app/
+Site: https://hackathon-starter-navy.vercel.app
+
 Presentation: https://claude.ai/artifact/8Vd2UK8tNEq5NzoCDPdekp?sk=RJH6O-RWEAi1AsnNMeHiJQ#slide-778c791d7342
 
 ## Contents
