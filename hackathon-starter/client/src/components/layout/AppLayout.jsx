@@ -18,7 +18,9 @@ export function AppLayout() {
   const outlet = useOutlet()
   const [collapsed, setCollapsed] = useLocalStorage('cf-sidebar-collapsed', false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { isStaff } = useAuth()
+  const { user, isStaff } = useAuth()
+  // Students (signed out) only report an issue, so they get no side navigation.
+  const showSidebar = Boolean(user && isStaff)
 
   // Close mobile drawer and scroll to top on navigation
   useEffect(() => {
@@ -28,18 +30,20 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar
-        collapsed={collapsed}
-        onToggleCollapsed={() => setCollapsed((c) => !c)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+      {showSidebar && (
+        <Sidebar
+          collapsed={collapsed}
+          onToggleCollapsed={() => setCollapsed((c) => !c)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
+      )}
 
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Blueprint grid backdrop */}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-105 bg-blueprint mask-fade-b" />
 
-        <Navbar onMenuClick={() => setMobileOpen(true)} />
+        <Navbar onMenuClick={showSidebar ? () => setMobileOpen(true) : undefined} />
 
         <main className="relative flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
