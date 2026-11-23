@@ -421,6 +421,12 @@ create policy "ticket-photos: upload"
   on storage.objects for insert to anon, authenticated
   with check (bucket_id = 'ticket-photos');
 
+-- Admins delete a report's photos together with the report.
+drop policy if exists "ticket-photos: signed-in delete" on storage.objects;
+create policy "ticket-photos: signed-in delete"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'ticket-photos');
+
 drop policy if exists "ticket-photos: public read" on storage.objects;
 create policy "ticket-photos: public read"
   on storage.objects for select to anon, authenticated

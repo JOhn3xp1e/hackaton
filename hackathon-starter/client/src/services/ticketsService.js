@@ -1,4 +1,5 @@
 import { query, supabase } from '@/lib/supabase'
+import { PHOTO_BUCKET } from '@/lib/constants'
 
 /**
  * Tickets — direct Supabase access (see CLAUDE.md: no Express for CRUD).
@@ -112,6 +113,31 @@ export const ticketsService = {
       supabase.from('tickets').update({ assigned_to: profileId }).eq('id', ticketId).select('id').single(),
       'Could not update the assignee',
     )
+  },
+
+  /**
+   * Admin: permanently delete a report. Its timeline and comments go with it
+   * (ON DELETE CASCADE). Photos are then removed from storage on a best-effort
+   * basis — returns { photosRemoved: boolean } so the UI can mention leftovers.
+   */
+  async remove(ticket) {
+    const deleted = await query(
+      supabase.from('tickets').delete().eq('id', ticket.id).select('id'),
+      'Could not delete the report',
+    )
+    if (!deleted?.length) throw new Error('This report no longer exists or could not be deleted.')
+
+    const marker = `/object/public/${PHOTO_BUCKET}/`
+    const paths = (ticket.photo_urls ?? [])
+      .map((url) => (url.includes(marker) ? decodeURIComponent(url.split(marker)[1].split('?')[0]) : null))
+      .filter(Boolean)
+    if (!paths.length) return { photosRemoved: true }
+    try {
+      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).remove(paths)
+      return { photosRemoved: !error && (data?.length ?? 0) === paths.length }
+    } catch {
+      return { photosRemoved: false }
+    }
   },
 
   /** Staff: mark a student's report valid (earns credits) or invalid. */

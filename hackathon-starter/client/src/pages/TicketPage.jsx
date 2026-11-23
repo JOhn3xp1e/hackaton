@@ -15,6 +15,7 @@ import { SEVERITY_MAP, StatusBadge } from '@/components/shared/StatusBadge'
 import { StatusProgress } from '@/components/tickets/StatusProgress'
 import { Timeline } from '@/components/tickets/Timeline'
 import { StaffActions } from '@/components/tickets/StaffActions'
+import { DeleteTicket } from '@/components/tickets/DeleteTicket'
 import { PhotoGallery } from '@/components/tickets/PhotoGallery'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -36,7 +37,7 @@ function Detail({ icon: Icon, label, children }) {
 
 export default function TicketPage() {
   const { ticketNumber } = useParams()
-  const { user, isStaff } = useAuth()
+  const { user, isStaff, isAdmin } = useAuth()
   const staffView = Boolean(user && isStaff)
   const [flash, setFlash] = useState(false)
 
@@ -139,6 +140,7 @@ export default function TicketPage() {
         <aside className="grid gap-6 lg:sticky lg:top-24">
           {staffView && ticket.student_no && <ReviewPanel ticket={ticket} onChanged={refetch} />}
           {staffView && <StaffActions ticket={ticket} onChanged={refetch} />}
+          {staffView && isAdmin && <DeleteTicket ticket={ticket} />}
 
           <Card>
             <CardHeader>
