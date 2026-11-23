@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { BadgeCheck, Building2, CalendarClock, Cpu, Eye, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
+import { Ban, BadgeCheck, Building2, CalendarClock, Cpu, Eye, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
+import { useToast } from '@/components/ui/toast'
 import { CATEGORIES, ROLES, VALIDITY } from '@/lib/constants'
 import { maskStudentNo, reporterLabel } from '@/lib/studentIdentity'
 import { Comments } from '@/components/tickets/Comments'
@@ -48,6 +49,7 @@ export default function TicketPage({ publicView = false }) {
   const signedInStaff = Boolean(user && isStaff)
   const staffView = signedInStaff && !publicView
   const [flash, setFlash] = useState(false)
+  const toast = useToast()
 
   const { data: ticket, isLoading, error, refetch } = useAsync(() => ticketsService.getByNumber(ticketNumber), [ticketNumber])
 
@@ -200,6 +202,21 @@ export default function TicketPage({ publicView = false }) {
                     <span className="font-mono text-[12px] text-muted-foreground">
                       · {staffView ? ticket.student_no : maskStudentNo(ticket.student_no)}
                     </span>
+                  )}
+                  {staffView && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 flex w-fit text-destructive hover:text-destructive"
+                      leftIcon={<Ban />}
+                      onClick={() =>
+                        toast.info('Blocking is not available yet', {
+                          description: `${reporterLabel(ticket)}${ticket.student_no ? ` (${ticket.student_no})` : ''} was not blocked.`,
+                        })
+                      }
+                    >
+                      Block user
+                    </Button>
                   )}
                 </Detail>
                 {ticket.student_no && (
