@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { NavLink } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronFirst, X } from 'lucide-react'
@@ -6,56 +6,14 @@ import { cn } from '@/lib/utils'
 import { config } from '@/lib/config'
 import { navForRole } from '@/data/navigation'
 import { useAuth } from '@/providers/AuthProvider'
-import { healthService } from '@/services/healthService'
 import { Tooltip } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 
 const EXPANDED = 264
 const COLLAPSED = 76
-const HEALTH_POLL_MS = 60_000
 
 const EASE_OUT = [0.16, 1, 0.3, 1]
 const SPRING = { type: 'spring', stiffness: 520, damping: 40, mass: 0.8 }
-
-const STATUS = {
-  checking: { label: 'Checking systems…', dot: 'bg-muted-foreground', ping: true },
-  ok: { label: 'All systems operational', dot: 'bg-success', ping: false },
-  degraded: { label: 'AI triage unavailable', dot: 'bg-warning', ping: true },
-  down: { label: 'Server unreachable', dot: 'bg-destructive', ping: true },
-}
-
-/** Polls the Express health endpoint so the footer reflects the real backend state. */
-function useSystemStatus() {
-  const [status, setStatus] = useState('checking')
-
-  useEffect(() => {
-    let active = true
-    let controller
-
-    const check = async () => {
-      controller?.abort()
-      controller = new AbortController()
-      try {
-        const { data } = await healthService.check({ signal: controller.signal })
-        if (active) setStatus(data?.status === 'ok' ? (data.aiTriage ? 'ok' : 'degraded') : 'down')
-      } catch (err) {
-        if (active && err?.name !== 'AbortError') setStatus('down')
-      }
-    }
-
-    check()
-    const timer = setInterval(check, HEALTH_POLL_MS)
-    window.addEventListener('focus', check)
-    return () => {
-      active = false
-      controller?.abort()
-      clearInterval(timer)
-      window.removeEventListener('focus', check)
-    }
-  }, [])
-
-  return STATUS[status]
-}
 
 /* ───────────────────────────── Brand ───────────────────────────── */
 
@@ -258,80 +216,12 @@ function NavItems({ collapsed, onNavigate, idPrefix }) {
   )
 }
 
-/* ───────────────────────────── Footer ───────────────────────────── */
-
-function CampusCard() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 8 }}
-      transition={{ duration: 0.45, delay: 0.35, ease: EASE_OUT }}
-      className="relative mx-4 overflow-hidden rounded-lg bg-accent px-4 py-3.5"
-    >
-      {/* Soft sheen that sweeps across every few seconds */}
-      <motion.span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/8"
-        animate={{ x: ['0%', '420%'] }}
-        transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity, repeatDelay: 6, delay: 1.2 }}
-      />
-      <p className="relative font-mono text-[11px] tracking-[0.08em] whitespace-nowrap text-primary uppercase">{config.campusName}</p>
-      <p className="relative mt-1.5 truncate text-[13.5px] text-foreground">{config.campusUnit}</p>
-      <p className="relative mt-1.5 font-mono text-[9.5px] tracking-[0.1em] whitespace-nowrap text-muted-foreground uppercase">
-        Campus Network · v {config.appVersion}
-      </p>
-    </motion.div>
-  )
-}
-
-function SystemStatus({ status, collapsed }) {
-  return (
-    <Tooltip content={collapsed ? status.label : null} side="right">
-      <div
-        role="status"
-        aria-live="polite"
-        className={cn('flex items-center gap-2.5 px-6 py-4', collapsed && 'justify-center px-0')}
-      >
-        <span className="relative flex size-2 shrink-0">
-          <span
-            className={cn(
-              'absolute inset-0 rounded-full',
-              status.dot,
-              status.ping ? 'animate-ping opacity-60' : 'animate-[ping_2.4s_cubic-bezier(0,0,0.2,1)_infinite] opacity-30',
-            )}
-          />
-          <span className={cn('relative size-2 rounded-full transition-colors duration-500', status.dot)} />
-        </span>
-        {collapsed ? (
-          <span className="sr-only">{status.label}</span>
-        ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={status.label}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2 }}
-              className="truncate text-[12.5px] text-muted-foreground"
-            >
-              {status.label}
-            </motion.span>
-          </AnimatePresence>
-        )}
-      </div>
-    </Tooltip>
-  )
-}
-
 /* ───────────────────────────── Sidebar ───────────────────────────── */
 
 /**
  * Sidebar — collapsible on desktop, slide-in drawer on mobile.
  */
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClose }) {
-  const status = useSystemStatus()
-
   return (
     <>
       {/* Desktop */}
@@ -343,8 +233,6 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClos
       >
         <Brand collapsed={collapsed} />
         <NavItems collapsed={collapsed} idPrefix="sidebar" />
-        <AnimatePresence initial={false}>{!collapsed && <CampusCard key="campus" />}</AnimatePresence>
-        <SystemStatus status={status} collapsed={collapsed} />
 
         <div className="px-3 pb-4">
           <Tooltip content={collapsed ? 'Expand sidebar' : null} side="right">
@@ -412,8 +300,6 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClos
               </button>
               <Brand />
               <NavItems onNavigate={onMobileClose} idPrefix="drawer" />
-              <CampusCard />
-              <SystemStatus status={status} />
             </motion.aside>
           </div>
         )}
