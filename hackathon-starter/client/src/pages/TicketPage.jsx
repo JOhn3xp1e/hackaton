@@ -18,6 +18,7 @@ import { StaffActions } from '@/components/tickets/StaffActions'
 import { DeleteTicket } from '@/components/tickets/DeleteTicket'
 import { EmailReporter } from '@/components/tickets/EmailReporter'
 import { PhotoGallery } from '@/components/tickets/PhotoGallery'
+import { SimilarIssues } from '@/components/tickets/SimilarIssues'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingSkeleton } from '@/components/feedback/LoadingSkeleton'
@@ -134,6 +135,8 @@ export default function TicketPage({ publicView = false }) {
               <PhotoGallery urls={ticket.photo_urls} />
             </CardContent>
           </Card>
+
+          {staffView && <SimilarIssues key={ticket.id} ticket={ticket} />}
 
           <Card>
             <CardHeader>
