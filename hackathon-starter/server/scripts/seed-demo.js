@@ -22,6 +22,25 @@ const DEMO_USERS = [
 ]
 const LEGACY_STUDENT_EMAIL = 'student@campusfix.demo'
 
+// Default super admin (role `admin`: full access incl. Campus Map / QR codes).
+// Override in server/.env. Change the password before any real deployment.
+const SUPER_ADMIN = {
+  email: process.env.SUPER_ADMIN_EMAIL || 'admin@gmail.com',
+  password: process.env.SUPER_ADMIN_PASSWORD || 'admin123',
+  full_name: 'Super Admin',
+  role: 'admin',
+}
+
+/** Create the super admin, or reset its password/role to the configured values if it exists. */
+async function ensureSuperAdmin(existing) {
+  const user = await ensureUser(SUPER_ADMIN, existing)
+  if (existing.some((u) => u.email === SUPER_ADMIN.email)) {
+    const { error } = await supabase.auth.admin.updateUserById(user.id, { password: SUPER_ADMIN.password, email_confirm: true })
+    if (error) throw error
+  }
+  return user
+}
+
 // [student number, name ('' = always anonymous)]
 const STUDENTS = [
   ['2023-00412', 'Sam Dela Cruz'],
@@ -81,13 +100,13 @@ async function listAuthUsers() {
   return data.users
 }
 
-async function ensureUser({ email, full_name, role }, existing) {
+async function ensureUser({ email, full_name, role, password = DEMO_PASSWORD }, existing) {
   let user = existing.find((u) => u.email === email)
 
   if (!user) {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password: DEMO_PASSWORD,
+      password,
       email_confirm: true,
       user_metadata: { full_name },
     })
@@ -179,6 +198,19 @@ async function main() {
   const existing = await listAuthUsers()
   const users = {}
   for (const u of DEMO_USERS) users[u.role] = await ensureUser(u, existing)
+  try {
+    await ensureSuperAdmin(existing)
+  } catch (err) {
+    if (/password/i.test(err.message ?? '')) {
+      console.error(
+        `❌ Supabase rejected the super admin password: ${err.message}\n` +
+          '   Lower "Minimum password length" in Supabase → Authentication → Providers → Email (Password),\n' +
+          '   or set a longer SUPER_ADMIN_PASSWORD in server/.env, then run this again.',
+      )
+      process.exit(1)
+    }
+    throw err
+  }
   await removeLegacyStudent(existing)
 
   const { data: locations, error: locError } = await supabase.from('locations').select('id, code')
@@ -273,6 +305,7 @@ async function main() {
 
   console.log(`\n✅ Demo data ready. Staff sign in with any of these (password: ${DEMO_PASSWORD}):`)
   for (const u of DEMO_USERS) console.log(`   ${u.role.padEnd(13)} ${u.email}`)
+  console.log(`   Super admin: ${SUPER_ADMIN.email} (password from SUPER_ADMIN_PASSWORD, default "admin123")`)
   console.log('   Students do not sign in: they report from the home page with a student number, e.g. 2023-00412.')
 }
 
