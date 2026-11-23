@@ -304,7 +304,48 @@ create index if not exists ticket_comments_ticket_idx on public.ticket_comments 
 
 
 -- ───────────────────────────────────────────────────────────────────────────
--- 6. Analytics views
+-- 5c. Data mode — admin toggle in Settings between "production" (real reports
+--     only) and "mock" (real + seeded demo rows). Prototype-only feature: the
+--     seed script marks its rows is_demo = true; real reports stay false.
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.app_settings (
+  key         text primary key,
+  value       text        not null,
+  updated_by  uuid
+                constraint app_settings_updated_by_fkey references public.profiles (id) on delete set null,
+  updated_at  timestamptz not null default now()
+);
+
+drop trigger if exists app_settings_set_updated_at on public.app_settings;
+create trigger app_settings_set_updated_at
+  before update on public.app_settings
+  for each row execute function public.set_updated_at();
+
+alter table public.app_settings drop constraint if exists app_settings_data_mode_check;
+alter table public.app_settings add constraint app_settings_data_mode_check
+  check (key <> 'data_mode' or value in ('production', 'mock'));
+
+insert into public.app_settings (key, value) values ('data_mode', 'mock')
+on conflict (key) do nothing;
+
+alter table public.tickets         add column if not exists is_demo boolean not null default false;
+alter table public.ticket_comments add column if not exists is_demo boolean not null default false;
+create index if not exists tickets_is_demo_idx on public.tickets (is_demo);
+
+-- True when demo rows should be visible (data_mode = 'mock'). Used by the views below.
+create or replace function public.show_demo_data()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce((select value from public.app_settings where key = 'data_mode'), 'mock') = 'mock';
+$$;
+
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- 6. Analytics views — every view hides demo rows in production mode via
+--    `show_demo_data() or not is_demo`, so dashboards, the leaderboard and the
+--    chat assistant follow the Settings toggle automatically.
 -- ───────────────────────────────────────────────────────────────────────────
 create or replace view public.ticket_stats_by_category as
 select
@@ -312,6 +353,7 @@ select
   count(*)::int                                          as total,
   count(*) filter (where status <> 'resolved')::int      as open
 from public.tickets
+where public.show_demo_data() or not is_demo
 group by category
 order by total desc;
 
@@ -323,7 +365,7 @@ select
   count(t.id)::int                                         as total,
   count(t.id) filter (where t.status <> 'resolved')::int   as open
 from public.locations l
-left join public.tickets t on t.location_id = l.id
+left join public.tickets t on t.location_id = l.id and (public.show_demo_data() or not t.is_demo)
 group by l.id, l.code, l.name
 order by total desc;
 
@@ -332,9 +374,11 @@ select
   d::date                                                       as day,
   count(t.id)::int                                              as reported,
   (select count(*)::int from public.tickets r
-     where r.resolved_at >= d and r.resolved_at < d + interval '1 day') as resolved
+     where r.resolved_at >= d and r.resolved_at < d + interval '1 day'
+       and (public.show_demo_data() or not r.is_demo))           as resolved
 from generate_series(current_date - interval '29 days', current_date, interval '1 day') as d
 left join public.tickets t on t.created_at >= d and t.created_at < d + interval '1 day'
+                          and (public.show_demo_data() or not t.is_demo)
 group by d
 order by d;
 
@@ -349,7 +393,8 @@ select
   round(avg(extract(epoch from (resolved_at - created_at)) / 3600.0)
           filter (where resolved_at is not null)::numeric, 1)                           as avg_resolution_hours,
   count(*) filter (where validity = 'unreviewed' and student_no is not null)::int       as unreviewed
-from public.tickets;
+from public.tickets
+where public.show_demo_data() or not is_demo;
 
 -- Credits: +10 for a report staff marked valid, +5 more once it is resolved.
 -- Keep in sync with CREDITS in client/src/lib/constants.js.
@@ -365,7 +410,7 @@ select
                     else 0 end), 0)::int                                                as credits,
   max(created_at)                                                                       as last_report_at
 from public.tickets
-where student_no is not null
+where student_no is not null and (public.show_demo_data() or not is_demo)
 group by student_no
 order by credits desc, valid_reports desc, last_report_at desc;
 
@@ -379,6 +424,7 @@ alter table public.equipment      disable row level security;
 alter table public.tickets        disable row level security;
 alter table public.ticket_updates disable row level security;
 alter table public.ticket_comments disable row level security;
+alter table public.app_settings   disable row level security;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
@@ -397,6 +443,10 @@ begin
   if not exists (select 1 from pg_publication_tables
                  where pubname = 'supabase_realtime' and tablename = 'ticket_comments') then
     alter publication supabase_realtime add table public.ticket_comments;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and tablename = 'app_settings') then
+    alter publication supabase_realtime add table public.app_settings;
   end if;
 end;
 $$;

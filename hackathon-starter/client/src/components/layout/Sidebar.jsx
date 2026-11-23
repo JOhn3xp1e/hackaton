@@ -118,7 +118,7 @@ function NavItems({ collapsed, onNavigate, idPrefix }) {
   const [hovered, setHovered] = useState(null)
 
   return (
-    <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4" onMouseLeave={() => setHovered(null)}>
+    <nav className="flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin px-3 pb-4" onMouseLeave={() => setHovered(null)}>
       {sections.map((section) => (
         <div key={section.title} className="mb-6 last:mb-0">
           <motion.p
@@ -133,7 +133,11 @@ function NavItems({ collapsed, onNavigate, idPrefix }) {
           <motion.ul key={profile?.role ?? 'guest'} className="grid gap-1" variants={listVariants} initial="hidden" animate="show">
             {section.items.map((item) => (
               <motion.li key={item.to} variants={itemVariants}>
+                {/* The tooltip trigger wraps a plain span: Radix's Slot would otherwise merge into
+                    NavLink's function className, dropping `relative` and letting the active
+                    highlight cover the whole sidebar when collapsed. */}
                 <Tooltip content={collapsed ? item.label : null} side="right">
+                  <span className="block">
                   <NavLink
                     to={item.to}
                     end={item.end}
@@ -206,6 +210,7 @@ function NavItems({ collapsed, onNavigate, idPrefix }) {
                       </>
                     )}
                   </NavLink>
+                  </span>
                 </Tooltip>
               </motion.li>
             ))}

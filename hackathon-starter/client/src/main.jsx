@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/providers/ThemeProvider'
 import { ToastProvider } from '@/components/ui/toast'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/providers/AuthProvider'
+import { DataModeProvider } from '@/providers/DataModeProvider'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import App from './App'
 import '@/styles/globals.css'
@@ -20,7 +21,9 @@ createRoot(document.getElementById('root')).render(
             <ToastProvider>
               {isSupabaseConfigured ? (
                 <AuthProvider>
-                  <App />
+                  <DataModeProvider>
+                    <App />
+                  </DataModeProvider>
                 </AuthProvider>
               ) : (
                 <App />

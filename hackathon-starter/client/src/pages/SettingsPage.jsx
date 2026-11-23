@@ -17,11 +17,12 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DataModeCard } from '@/components/settings/DataModeCard'
 
 export default function SettingsPage() {
   const toast = useToast()
   const { theme, setTheme } = useTheme()
-  const { user, profile, setProfile } = useAuth()
+  const { user, profile, setProfile, isAdmin } = useAuth()
   const [health, setHealth] = useState({ state: 'idle' })
 
   const form = useForm({
@@ -82,6 +83,7 @@ export default function SettingsPage() {
         </FormContainer>
 
         <div className="grid gap-6 lg:grid-cols-2">
+          {isAdmin && <DataModeCard />}
           <Card>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>

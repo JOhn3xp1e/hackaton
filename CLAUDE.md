@@ -52,6 +52,7 @@ This is useful because it addresses a problem that your existing school platform
 - **Students can only report an issue.** The only student-facing pages are `/` and `/r/:code`, plus the ticket page reached through the "Track it" link after submitting. The **reports feed (`/reports`, with a "By student" filter) and `/leaderboard` are staff-only.** Ticket comments: staff comment as their profile, students with their student number. The student number placeholder is `2000XXXXXX`.
 - **Equipment:** every item has a sticker ID (`equipment.short_code`, e.g. `CL2-PC15`) and belongs to a location. The report form's **"What is it?"** section searches equipment by ID, name or room (`services/equipmentService.js`, `components/report/EquipmentPicker.jsx`). The ticket takes `equipment_id` and its location from the picked item. Admins manage equipment and print ID labels from Campus Map (`components/locations/EquipmentManager.jsx`).
 - **"Report an issue" is for students only.** It's hidden from signed-in staff in the sidebar (`hideForRoles`), and staff opening `/` are redirected to `/dashboard`. Room QR links (`/r/:code`) still work for everyone.
+- **Data mode (Settings, admin only, app-wide):** `app_settings.data_mode` = `production` (real reports only) or `mock` (real + demo rows). The SQL views filter themselves with `show_demo_data()`. Direct `tickets`/`ticket_comments` queries must use `withoutDemo()` from `client/src/lib/dataMode.js` (server: `withoutDemo` in `chatTools.js`). New seed data must set `is_demo: true`.
 - **Credits:** staff mark a student report `valid` or `invalid` (`tickets.validity`). Valid = +10, plus +5 when resolved. Computed by the `student_credits` view, mirrored in `CREDITS` in `client/src/lib/constants.js`. Shown to staff on `/leaderboard`.
 - **`POST /api/triage` is public and rate-limited per IP.**
 - **CampusFix Assistant (`POST /api/chat`) is staff-only.** The `requireStaff` middleware checks the Supabase Bearer token and role. Groq answers through read-only DB tools (`server/src/services/chatTools.js`) and never writes data. UI: floating `components/assistant/ChatWidget.jsx`, rendered in `AppLayout` for staff. Env: `GROQ_API_KEY`, `GROQ_MODEL`.
@@ -63,7 +64,7 @@ All app code lives in `hackathon-starter/`:
 - `database/` - SQL schema and seed (`schema.sql`, `seed.sql`)
 
 # Coding Standards & Rules
-1. **No Placeholders or Mocks:** Never leave `// TODO` comments, mocked API responses, or dummy `setTimeout` delays. Write real, functional integrations.
+1. **No Placeholders or Mocks:** Never leave `// TODO` comments, mocked API responses, or dummy `setTimeout` delays. Write real, functional integrations. *Deliberate exception (prototype):* the admin **Data mode** toggle in Settings. Both modes read real Supabase data; "Mock data" additionally shows rows seeded by `seed:demo` (`is_demo = true`).
 2. **Schema Alignment:** Keep `client/src/lib/constants.js`, Zod schemas, and `server/src/validators/triage.schema.js` strictly aligned with the CHECK constraints in `database/schema.sql`.
 3. **Minimal Dependencies:** Do not install new npm packages without asking first. Stick to Tailwind CSS and existing libraries.
 4. **Error Handling:** Always wrap external API calls and Supabase queries in `try/catch` blocks and surface clear, user-friendly toast/UI error states for live demos.

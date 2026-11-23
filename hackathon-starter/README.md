@@ -94,6 +94,7 @@ hackathon-starter/
   - Each ticket also has a category, severity, status, photos, Claude's suggestions, and the staff review (`validity`, which is unreviewed, valid or invalid).
 - `ticket_updates` is the status timeline. Staff changes go through `update_ticket_status()`.
 - `ticket_comments` holds the public discussion. Staff comment with `author_id`; students with `student_no`, which can be anonymous.
+- `app_settings` holds app-wide settings. `data_mode` is the admin **Settings → Data mode** toggle: **Production** shows real reports only, and **Mock data** also shows the rows `seed:demo` created (`is_demo = true` on tickets and comments). A "Mock data" badge appears in the top bar while demo data is visible.
 - The views are `ticket_overview`, `ticket_stats_by_category`, `ticket_stats_by_location`, `ticket_daily_counts` and `student_credits` (the leaderboard).
 
 > **Prototype security:** RLS is disabled on the public tables, so anyone with the anon key can read and write them (see CLAUDE.md). Student numbers aren't verified, so anyone can type any number. Before a real deployment, add verification (for example, school SSO) and enable RLS so that only staff can change status and review reports. `/api/triage` is public and rate-limited to 10 requests per 5 minutes per IP.

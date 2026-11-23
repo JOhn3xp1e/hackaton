@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { LogIn, Menu } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
+import { useDataMode } from '@/providers/DataModeProvider'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs'
 import { SearchBar } from '@/components/shared/SearchBar'
@@ -15,6 +17,7 @@ export function Navbar({ onMenuClick }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isStaff, isLoading } = useAuth()
+  const { showDemo } = useDataMode()
 
   // A ticket number jumps straight to the ticket; anything else searches a list.
   const onSearch = (e) => {
@@ -44,6 +47,12 @@ export function Navbar({ onMenuClick }) {
           <form onSubmit={onSearch} className="hidden w-64 sm:block">
             <SearchBar value={query} onChange={setQuery} placeholder="Ticket # or keyword…" shortcut />
           </form>
+        )}
+        {/* Settings → Data mode: flag demo data so it's never mistaken for real reports */}
+        {showDemo && (
+          <Badge variant="warning" dot className="hidden sm:inline-flex" title="Seeded demo data is visible (Settings → Data mode)">
+            Mock data
+          </Badge>
         )}
         <ThemeToggle />
         {user ? (

@@ -47,6 +47,16 @@ async function run(q) {
   return { data, count }
 }
 
+/**
+ * Settings → Data mode: in production, hide seeded demo tickets (is_demo).
+ * The analytics views filter themselves in SQL; direct `tickets` queries call this.
+ * If the setting can't be read (schema not re-run yet), demo rows stay visible.
+ */
+async function withoutDemo(q) {
+  const { data, error } = await supabase.rpc('show_demo_data')
+  return error || data !== false ? q : q.eq('is_demo', false)
+}
+
 const handlers = {
   async get_overview() {
     const { data } = await run(supabase.from('ticket_overview').select('*').maybeSingle())
@@ -97,12 +107,12 @@ const handlers = {
       if (s) q = q.or(`title.ilike.%${s}%,description.ilike.%${s}%,asset_label.ilike.%${s}%,ticket_number.ilike.%${s}%`)
     }
 
-    const { data, count } = await run(q)
+    const { data, count } = await run(await withoutDemo(q))
     return { total_matching: count ?? data.length, showing: data.length, tickets: data.map((t) => compactTicket(t)) }
   },
 
   async get_ticket({ ticket_number }) {
-    const { data: t } = await run(
+    const query = await withoutDemo(
       supabase
         .from('tickets')
         .select(
@@ -112,9 +122,9 @@ const handlers = {
           comments:ticket_comments ( body, display_name, is_anonymous, student_no, created_at,
             author:profiles!ticket_comments_author_id_fkey ( full_name ) )`,
         )
-        .eq('ticket_number', ticket_number)
-        .maybeSingle(),
+        .eq('ticket_number', ticket_number),
     )
+    const { data: t } = await run(query.maybeSingle())
     if (!t) return { error: `Ticket ${ticket_number} was not found.` }
 
     const byDate = (x, y) => new Date(x.created_at) - new Date(y.created_at)

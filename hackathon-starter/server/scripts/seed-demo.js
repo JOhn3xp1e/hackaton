@@ -160,6 +160,7 @@ async function seedComments(staff) {
     const [otherNo, otherName] = pick(STUDENTS)
     rows.push({
       ticket_id: t.id,
+      is_demo: true,
       author_id: null,
       student_no: otherNo,
       display_name: otherName,
@@ -171,6 +172,7 @@ async function seedComments(staff) {
     if (replier) {
       rows.push({
         ticket_id: t.id,
+        is_demo: true,
         author_id: replier,
         student_no: null,
         display_name: '',
@@ -186,6 +188,41 @@ async function seedComments(staff) {
     if (insertError) throw insertError
   }
   console.log(`→ Added ${rows.length} comments.`)
+}
+
+/**
+ * Data mode (Settings → Production / Mock data): flag everything this script
+ * generated as is_demo so production mode can hide it. Covers rows seeded
+ * before the flag existed: tickets from the seed student numbers or the demo
+ * staff accounts, and every comment on those tickets or written by them.
+ * Real reports (other student numbers, the super admin) stay production.
+ */
+async function backfillDemoFlags(users) {
+  const demoStaff = staffIdsOf(users).concat(users.admin.id)
+  const demoStudents = STUDENTS.map(([no]) => no)
+
+  const byStudent = await supabase.from('tickets').update({ is_demo: true }).in('student_no', demoStudents).eq('is_demo', false).select('id')
+  if (byStudent.error) {
+    if (/is_demo/.test(byStudent.error.message ?? '')) {
+      console.error('❌ The database is missing the data-mode columns. Re-run database/schema.sql in the Supabase SQL editor first.')
+      process.exit(1)
+    }
+    throw byStudent.error
+  }
+  const byStaff = await supabase.from('tickets').update({ is_demo: true }).in('reporter_id', demoStaff).eq('is_demo', false).select('id')
+  if (byStaff.error) throw byStaff.error
+
+  const { data: demoTickets, error } = await supabase.from('tickets').select('id').eq('is_demo', true)
+  if (error) throw error
+  const ids = demoTickets.map((t) => t.id)
+  let comments = 0
+  for (let i = 0; i < ids.length; i += 100) {
+    const r = await supabase.from('ticket_comments').update({ is_demo: true }).in('ticket_id', ids.slice(i, i + 100)).eq('is_demo', false).select('id')
+    if (r.error) throw r.error
+    comments += r.data.length
+  }
+  const flagged = byStudent.data.length + byStaff.data.length
+  if (flagged || comments) console.log(`→ Marked ${flagged} existing tickets and ${comments} comments as demo data.`)
 }
 
 async function main() {
@@ -265,6 +302,7 @@ async function main() {
         .from('tickets')
         .insert({
           location_id: locByCode[code],
+          is_demo: true,
           student_no: studentNo,
           reporter_name: studentName,
           is_anonymous: anonymous,
@@ -302,6 +340,7 @@ async function main() {
   }
 
   await seedComments(staffIdsOf(users))
+  await backfillDemoFlags(users)
 
   console.log(`\n✅ Demo data ready. Staff sign in with any of these (password: ${DEMO_PASSWORD}):`)
   for (const u of DEMO_USERS) console.log(`   ${u.role.padEnd(13)} ${u.email}`)

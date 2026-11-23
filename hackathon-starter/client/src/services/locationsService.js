@@ -1,4 +1,5 @@
 import { friendlyError, query, supabase } from '@/lib/supabase'
+import { withoutDemo } from '@/lib/dataMode'
 
 export const locationsService = {
   async list() {
@@ -71,7 +72,7 @@ export const locationsService = {
   /** Open high/critical tickets per location: { [location_id]: { urgent, critical } }. */
   async urgentByLocation() {
     const rows = await query(
-      supabase.from('tickets').select('location_id, severity').neq('status', 'resolved').in('severity', ['high', 'critical']),
+      withoutDemo(supabase.from('tickets').select('location_id, severity').neq('status', 'resolved').in('severity', ['high', 'critical'])),
       'Could not load urgent issues',
     )
     const byId = {}

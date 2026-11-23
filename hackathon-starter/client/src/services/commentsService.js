@@ -1,4 +1,5 @@
 import { query, supabase } from '@/lib/supabase'
+import { withoutDemo } from '@/lib/dataMode'
 
 const SELECT = `
   id, ticket_id, author_id, student_no, display_name, is_anonymous, body, created_at,
@@ -9,7 +10,7 @@ const SELECT = `
 export const commentsService = {
   list: (ticketId) =>
     query(
-      supabase.from('ticket_comments').select(SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: true }),
+      withoutDemo(supabase.from('ticket_comments').select(SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: true })),
       'Could not load comments',
     ),
 

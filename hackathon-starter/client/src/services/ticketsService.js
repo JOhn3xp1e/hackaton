@@ -1,5 +1,6 @@
 import { query, supabase } from '@/lib/supabase'
 import { PHOTO_BUCKET } from '@/lib/constants'
+import { withoutDemo } from '@/lib/dataMode'
 
 /**
  * Tickets — direct Supabase access (see CLAUDE.md: no Express for CRUD).
@@ -36,7 +37,7 @@ export const ticketsService = {
    *           locationId?: string, validity?: string, search?: string, limit?: number }} filters
    */
   async list(filters = {}) {
-    let q = supabase.from('tickets').select(LIST_SELECT).order('created_at', { ascending: false })
+    let q = withoutDemo(supabase.from('tickets').select(LIST_SELECT).order('created_at', { ascending: false }))
     if (filters.studentNo) q = q.eq('student_no', filters.studentNo.trim().toUpperCase())
     if (filters.validity) q = q.eq('validity', filters.validity)
     if (filters.status) q = q.eq('status', filters.status)
@@ -53,11 +54,8 @@ export const ticketsService = {
 
   async getByNumber(ticketNumber) {
     const data = await query(
-      supabase
-        .from('tickets')
-        .select(DETAIL_SELECT)
-        .eq('ticket_number', ticketNumber.toUpperCase())
-        .maybeSingle(),
+      // In production mode a demo ticket resolves to null → "Ticket not found".
+      withoutDemo(supabase.from('tickets').select(DETAIL_SELECT).eq('ticket_number', ticketNumber.toUpperCase())).maybeSingle(),
       'Could not load this report',
     )
     if (data?.updates) data.updates.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))

@@ -4,6 +4,7 @@ import { Bell, CheckCheck, MessageSquare, TriangleAlert } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { query, supabase } from '@/lib/supabase'
+import { withoutDemo } from '@/lib/dataMode'
 import { cn, timeAgo } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -22,20 +23,24 @@ import {
 async function loadNotifications() {
   const [tickets, comments] = await Promise.all([
     query(
-      supabase
-        .from('tickets')
-        .select('id, ticket_number, title, severity, created_at, location:locations!tickets_location_id_fkey ( name )')
-        .order('created_at', { ascending: false })
-        .limit(8),
+      withoutDemo(
+        supabase
+          .from('tickets')
+          .select('id, ticket_number, title, severity, created_at, location:locations!tickets_location_id_fkey ( name )')
+          .order('created_at', { ascending: false })
+          .limit(8),
+      ),
       'Could not load notifications',
     ),
     query(
-      supabase
-        .from('ticket_comments')
-        .select('id, body, display_name, is_anonymous, created_at, ticket:tickets!inner ( ticket_number )')
-        .is('author_id', null)
-        .order('created_at', { ascending: false })
-        .limit(8),
+      withoutDemo(
+        supabase
+          .from('ticket_comments')
+          .select('id, body, display_name, is_anonymous, created_at, ticket:tickets!inner ( ticket_number )')
+          .is('author_id', null)
+          .order('created_at', { ascending: false })
+          .limit(8),
+      ),
       'Could not load notifications',
     ),
   ])
