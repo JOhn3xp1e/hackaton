@@ -75,3 +75,6 @@ export const LOCATION_TYPES = {
 export const MAX_PHOTOS = 3
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 export const PHOTO_BUCKET = 'ticket-photos'
+
+/** Equipment sticker IDs, e.g. CL2-PC15 (matches equipment_short_code_check). */
+export const EQUIPMENT_CODE_PATTERN = /^[A-Z0-9-]{2,32}$/

@@ -28,7 +28,7 @@ const columns = [
             <span className="truncate font-medium">{t.title}</span>
             <span className="truncate text-[12px] text-muted-foreground">
               {t.location?.name}
-              {t.asset_label && ` · ${t.asset_label}`}
+              {t.equipment ? ` · ${t.equipment.short_code} ${t.equipment.name}` : t.asset_label && ` · ${t.asset_label}`}
             </span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, ExternalLink, MapPin, Plus, Printer } from 'lucide-react'
+import { Cpu, Download, ExternalLink, MapPin, Plus, Printer } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useForm } from '@/hooks/useForm'
@@ -7,10 +7,12 @@ import { useToast } from '@/components/ui/toast'
 import { LOCATION_TYPES } from '@/lib/constants'
 import { locationsService } from '@/services/locationsService'
 import { analyticsService } from '@/services/analyticsService'
+import { equipmentService } from '@/services/equipmentService'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { FormContainer } from '@/components/shared/FormContainer'
 import { QrImage, qrDataUrl, reportUrlFor } from '@/components/locations/QrImage'
+import { EquipmentManager } from '@/components/locations/EquipmentManager'
 import { Modal } from '@/components/ui/modal'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -96,6 +98,8 @@ export default function LocationsPage() {
   const [adding, setAdding] = useState(false)
   const locations = useAsync(() => locationsService.list(), [], { initialData: [] })
   const stats = useAsync(() => analyticsService.byLocation(), [], { initialData: [] })
+  const equipmentCounts = useAsync(() => equipmentService.countsByLocation(), [], { initialData: {} })
+  const [managing, setManaging] = useState(null) // location whose equipment modal is open
 
   const openCount = useMemo(() => Object.fromEntries((stats.data ?? []).map((s) => [s.location_id, s.open])), [stats.data])
 
@@ -123,7 +127,7 @@ export default function LocationsPage() {
       <PageHeader
         breadcrumbs
         title="Locations & QR codes"
-        description="Print a QR sticker for every room. Scanning it opens the report form with that room filled in."
+        description="Print a QR sticker for every room and manage the equipment inside it. Students report by Equipment ID."
         actions={
           <>
             <Button variant="outline" onClick={() => window.print()} leftIcon={<Printer />} disabled={!filtered.length}>
@@ -180,7 +184,10 @@ export default function LocationsPage() {
                   <Badge variant="outline">{LOCATION_TYPES[loc.type]}</Badge>
                   {openCount[loc.id] > 0 && <Badge variant="warning">{openCount[loc.id]} open</Badge>}
                 </div>
-                <div className="flex gap-1.5 print:hidden">
+                <div className="flex flex-wrap gap-1.5 print:hidden">
+                  <Button size="sm" onClick={() => setManaging(loc)} leftIcon={<Cpu />}>
+                    Equipment ({equipmentCounts.data?.[loc.id] ?? 0})
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => download(loc)} leftIcon={<Download />}>
                     PNG
                   </Button>
@@ -197,6 +204,12 @@ export default function LocationsPage() {
       )}
 
       <AddLocationModal open={adding} onOpenChange={setAdding} onCreated={() => locations.refetch()} />
+      <EquipmentManager
+        location={managing}
+        open={Boolean(managing)}
+        onOpenChange={(o) => !o && setManaging(null)}
+        onChanged={() => equipmentCounts.refetch()}
+      />
     </>
   )
 }

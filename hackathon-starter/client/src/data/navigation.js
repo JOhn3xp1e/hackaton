@@ -11,6 +11,8 @@ import { STAFF_ROLES } from '@/lib/constants'
 export const navSections = [
   {
     title: 'Campus',
+    // Students only. Signed-in staff manage reports instead of filing them.
+    hideForRoles: STAFF_ROLES,
     items: [{ label: 'Report an Issue', to: '/', icon: SquarePen, end: true }],
   },
   {
@@ -32,6 +34,7 @@ export const navSections = [
 export function navForRole(role) {
   return navSections
     .filter((s) => !s.roles || s.roles.includes(role))
+    .filter((s) => !s.hideForRoles || !s.hideForRoles.includes(role))
     .map((s) => ({ ...s, items: s.items.filter((i) => !i.roles || i.roles.includes(role)) }))
     .filter((s) => s.items.length)
 }

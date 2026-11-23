@@ -38,7 +38,7 @@ export function TicketCard({ ticket, mine = false, className }) {
           <p className="flex items-center gap-1 truncate text-[12.5px] text-muted-foreground">
             <MapPin className="size-3.5 shrink-0" />
             {ticket.location?.name}
-            {ticket.asset_label && ` · ${ticket.asset_label}`}
+            {ticket.equipment ? ` · ${ticket.equipment.short_code}` : ticket.asset_label && ` · ${ticket.asset_label}`}
             {ticket.photo_urls?.length > 0 && (
               <>
                 {' · '}

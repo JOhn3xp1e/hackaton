@@ -100,6 +100,34 @@ create trigger locations_set_updated_at
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- 3b. equipment — individual items (PCs, projectors, aircon…) with a short ID
+--     printed on a sticker. Students report by Equipment ID; the equipment
+--     carries its location, so the room never has to be picked separately.
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.equipment (
+  id           uuid primary key default gen_random_uuid(),
+  short_code   text        not null
+                 constraint equipment_short_code_key unique
+                 constraint equipment_short_code_check check (short_code ~ '^[A-Z0-9-]{2,32}$'),
+  name         text        not null
+                 constraint equipment_name_check check (char_length(name) between 2 and 120),
+  description  text        not null default ''
+                 constraint equipment_description_check check (char_length(description) <= 500),
+  location_id  uuid        not null
+                 constraint equipment_location_id_fkey references public.locations (id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create index if not exists equipment_location_idx on public.equipment (location_id);
+
+drop trigger if exists equipment_set_updated_at on public.equipment;
+create trigger equipment_set_updated_at
+  before update on public.equipment
+  for each row execute function public.set_updated_at();
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- 4. tickets — one reported issue
 -- ───────────────────────────────────────────────────────────────────────────
 create sequence if not exists public.ticket_number_seq start 1001;
@@ -153,6 +181,11 @@ alter table public.tickets drop constraint if exists tickets_validity_check;
 alter table public.tickets add constraint tickets_validity_check check (validity in ('unreviewed', 'valid', 'invalid'));
 alter table public.tickets drop constraint if exists tickets_reporter_present;
 alter table public.tickets add constraint tickets_reporter_present check (reporter_id is not null or student_no is not null);
+
+-- v3: the specific piece of equipment that is broken (optional for old tickets).
+alter table public.tickets add column if not exists equipment_id uuid
+  constraint tickets_equipment_id_fkey references public.equipment (id) on delete set null;
+create index if not exists tickets_equipment_idx   on public.tickets (equipment_id);
 
 create index if not exists tickets_student_no_idx  on public.tickets (student_no);
 create index if not exists tickets_status_idx      on public.tickets (status);
@@ -341,6 +374,7 @@ order by credits desc, valid_reports desc, last_report_at desc;
 -- ───────────────────────────────────────────────────────────────────────────
 alter table public.profiles       disable row level security;
 alter table public.locations      disable row level security;
+alter table public.equipment      disable row level security;
 alter table public.tickets        disable row level security;
 alter table public.ticket_updates disable row level security;
 alter table public.ticket_comments disable row level security;

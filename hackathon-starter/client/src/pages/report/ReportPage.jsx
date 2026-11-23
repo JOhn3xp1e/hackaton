@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router'
 import { EyeOff, MapPin, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
@@ -18,10 +18,10 @@ import { FormSection } from '@/components/shared/FormContainer'
 import { CategoryPicker } from '@/components/report/CategoryPicker'
 import { SeverityPicker } from '@/components/report/SeverityPicker'
 import { PhotoPicker } from '@/components/report/PhotoPicker'
+import { EquipmentPicker } from '@/components/report/EquipmentPicker'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/feedback/ErrorState'
@@ -29,11 +29,10 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { ReportSuccess } from './ReportSuccess'
 
 const schema = z.object({
-  locationId: z.string().uuid('Choose where the problem is'),
+  equipmentId: z.string().uuid("Choose the equipment that's broken"),
   category: z.enum(CATEGORY_KEYS, { message: 'Choose a category' }),
   severity: z.enum(SEVERITY_KEYS, { message: 'Choose how serious it is' }),
   title: z.string().trim().min(3, 'Describe the problem in a few words').max(120, 'Keep it under 120 characters'),
-  assetLabel: z.string().trim().max(80, 'Keep it under 80 characters'),
   description: z.string().trim().max(2000, 'Keep it under 2000 characters'),
 })
 
@@ -46,7 +45,7 @@ const studentSchema = z.object({
 
 const SECTION = 'border-b border-border px-5 py-5 last:border-b-0 sm:px-6'
 
-const EMPTY = { locationId: '', category: '', severity: 'medium', title: '', assetLabel: '', description: '' }
+const EMPTY = { category: '', severity: 'medium', title: '', description: '' }
 
 export default function ReportPage() {
   const { locationCode } = useParams()
@@ -61,6 +60,7 @@ export default function ReportPage() {
     isAnonymous: identity.anonymous,
   })
   const [values, setValues] = useState(EMPTY)
+  const [equipment, setEquipment] = useState(null) // picked item, includes its location
   const [errors, setErrors] = useState({})
   const [photos, setPhotos] = useState([])
   const [ai, setAi] = useState(null) // { category, severity, summary }
@@ -68,25 +68,18 @@ export default function ReportPage() {
   const [submitting, setSubmitting] = useState(false)
   const [created, setCreated] = useState(null)
 
-  // QR flow: resolve the scanned location. Otherwise load all locations for the picker.
+  // Room QR code: resolve the room so the equipment search starts with its items.
   const scanned = useAsync(
     async () => {
       if (!locationCode) return null
       const loc = await locationsService.getByCode(decodeURIComponent(locationCode))
-      if (loc) setValues((v) => ({ ...v, locationId: loc.id }))
       return loc ?? false
     },
     [locationCode],
   )
-  const all = useAsync(() => (locationCode ? Promise.resolve([]) : locationsService.list()), [locationCode], { initialData: [] })
 
-  const locationOptions = useMemo(() => {
-    const groups = {}
-    for (const l of all.data ?? []) (groups[l.building || 'Other'] ??= []).push(l)
-    return Object.entries(groups).map(([building, list]) => ({ building, list }))
-  }, [all.data])
-
-  const location = locationCode ? scanned.data : (all.data ?? []).find((l) => l.id === values.locationId)
+  // The picked equipment carries its location; that's where the ticket goes.
+  const location = equipment?.location ?? null
 
   const set = (name, value) => {
     setValues((v) => ({ ...v, [name]: value }))
@@ -98,7 +91,8 @@ export default function ReportPage() {
   }
 
   const reset = () => {
-    setValues({ ...EMPTY, locationId: locationCode && scanned.data ? scanned.data.id : '' })
+    setValues(EMPTY)
+    setEquipment(null)
     setPhotos([])
     setAi(null)
     setErrors({})
@@ -115,7 +109,7 @@ export default function ReportPage() {
       const result = await triageService.suggest({
         title: values.title.trim(),
         description: values.description.trim(),
-        assetLabel: values.assetLabel.trim(),
+        assetLabel: equipment ? `${equipment.name} (${equipment.short_code})` : '',
         locationName: location ? `${location.name}, ${location.building}` : '',
       })
       setAi(result)
@@ -133,7 +127,7 @@ export default function ReportPage() {
 
   const submit = async (e) => {
     e.preventDefault()
-    const parsed = schema.safeParse(values)
+    const parsed = schema.safeParse({ ...values, equipmentId: equipment?.id ?? '' })
     const who = asStaff ? { success: true, data: {} } : studentSchema.safeParse(student)
     if (!parsed.success || !who.success) {
       setErrors({
@@ -149,12 +143,19 @@ export default function ReportPage() {
       const photoUrls = photos.length ? await photosService.uploadAll(photos, asStaff ? user.id : `students/${studentNo}`) : []
       const ticket = await ticketsService.create({
         ...parsed.data,
+        locationId: equipment.location_id,
+        assetLabel: equipment.name,
         ...(asStaff ? { reporterId: user.id } : { studentNo, reporterName: who.data.reporterName, isAnonymous: who.data.isAnonymous }),
         photoUrls,
         ai,
       })
       if (!asStaff) saveIdentity({ studentNo, name: who.data.reporterName, anonymous: who.data.isAnonymous })
-      setCreated({ ...ticket, title: parsed.data.title, locationName: location?.name, isStudent: !asStaff })
+      setCreated({
+        ...ticket,
+        title: parsed.data.title,
+        locationName: `${equipment.short_code} in ${location?.name ?? 'campus'}`,
+        isStudent: !asStaff,
+      })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       toast.error('Report not submitted', { description: err.message })
@@ -162,6 +163,9 @@ export default function ReportPage() {
       setSubmitting(false)
     }
   }
+
+  // "Report an issue" is the students' page; staff landing on "/" go to their dashboard.
+  if (asStaff && !locationCode) return <Navigate to="/dashboard" replace />
 
   if (created) return <ReportSuccess ticket={created} onReportAnother={reset} />
 
@@ -174,7 +178,7 @@ export default function ReportPage() {
         description={`We couldn't find a location with code "${decodeURIComponent(locationCode)}". The QR sticker may be outdated.`}
         action={
           <Button asChild variant="outline">
-            <Link to="/">Pick the location manually</Link>
+            <Link to="/">Search by Equipment ID instead</Link>
           </Button>
         }
       />
@@ -265,53 +269,38 @@ export default function ReportPage() {
             )}
           </FormSection>
 
-          <FormSection className={SECTION} title="Where is it?" description={locationCode ? 'Location from the QR code you scanned.' : 'Pick the room or area.'}>
-            {locationCode ? (
+          <FormSection
+            className={SECTION}
+            title="What is it?"
+            description="Type the Equipment ID on the sticker, the item's name, or the room. The equipment already knows where it is."
+          >
+            {locationCode && (
               scanned.isLoading ? (
-                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-12 w-full" />
               ) : scanned.error ? (
                 <ErrorState compact error={scanned.error} onRetry={scanned.refetch} />
               ) : (
-                <div className="flex items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
-                    <MapPin className="size-5" />
+                <div className="flex items-center gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2 text-[13px]">
+                  <MapPin className="size-4 shrink-0 text-primary" />
+                  <span className="min-w-0 truncate">
+                    Scanned <span className="font-medium">{scanned.data?.name}</span>
+                    <span className="text-muted-foreground"> · {scanned.data?.building} · {LOCATION_TYPES[scanned.data?.type]}</span>
                   </span>
-                  <span className="grid min-w-0">
-                    <span className="truncate font-semibold">{location?.name}</span>
-                    <span className="truncate text-[13px] text-muted-foreground">
-                      {location?.building} · {location?.floor} · {LOCATION_TYPES[location?.type]}
-                    </span>
-                  </span>
-                  <span className="ml-auto rounded border border-border bg-card px-2 py-0.5 font-mono text-[11px]">{location?.code}</span>
+                  <span className="ml-auto shrink-0 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[11px]">{scanned.data?.code}</span>
                 </div>
               )
-            ) : (
-              <Field label="Location" htmlFor="locationId" error={errors.locationId} required>
-                {all.error ? (
-                  <ErrorState compact error={all.error} onRetry={all.refetch} />
-                ) : (
-                  <Select
-                    id="locationId"
-                    value={values.locationId}
-                    onChange={(e) => set('locationId', e.target.value)}
-                    disabled={all.isLoading}
-                  >
-                    <option value="">{all.isLoading ? 'Loading locations…' : 'Choose a room or area…'}</option>
-                    {locationOptions.map((g) => (
-                      <optgroup key={g.building} label={g.building}>
-                        {g.list.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name} ({l.code})
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </Select>
-                )}
-              </Field>
             )}
-            <Field label="Which item?" htmlFor="assetLabel" error={errors.assetLabel} hint="e.g. Computer 15, Ceiling projector, Chair in row 3">
-              <Input id="assetLabel" value={values.assetLabel} onChange={(e) => set('assetLabel', e.target.value)} placeholder="Computer 15" />
+            <Field label="Equipment" htmlFor="equipment" error={errors.equipmentId} required>
+              <EquipmentPicker
+                value={equipment}
+                onChange={(item) => {
+                  setEquipment(item)
+                  if (errors.equipmentId) setErrors((e) => ({ ...e, equipmentId: undefined }))
+                }}
+                locationId={locationCode ? scanned.data?.id : undefined}
+                invalid={Boolean(errors.equipmentId)}
+                disabled={submitting || (locationCode && scanned.isLoading)}
+              />
             </Field>
           </FormSection>
 

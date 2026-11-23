@@ -57,7 +57,7 @@ cp server/.env.example server/.env     # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 1. **Admin** → *Locations & QR* → print or download the QR for **Computer Laboratory 2** (`CL-LAB-2`).
 2. A **student** on a phone (same Wi-Fi, opening the dev server's network URL) scans it. The report form opens with the lab pre-filled and **no login**.
-3. The student enters student number `2024-00123`, turns on *Report anonymously*, types "Computer 15 won't turn on", taps **Suggest with AI** (Claude picks *Computers · Medium*), attaches a photo and taps **Submit**. They get ticket `CF-00xxxx`.
+3. The student enters student number `2024-00123`, turns on *Report anonymously*, searches **`CL2-PC15`** under *What is it?* (or types "pc15" or "Computer Laboratory 2"), types "Computer 15 won't turn on", taps **Suggest with AI** (Claude picks *Computers · Medium*), attaches a photo and taps **Submit**. They get ticket `CF-00xxxx`.
 4. **Teacher** (second browser, *Staff sign in*) sees a live toast. They open the ticket, mark it **Valid** (+10 credits), then **In Progress** with a note, and post a comment.
 5. The student's ticket page updates live. On *Reports feed → My reports* they see their report, and they reply in the comments.
 6. Staff mark it **Resolved** (+5 bonus). On */leaderboard* the student's 15 credits appear under `2024-•••23`.
@@ -88,6 +88,7 @@ hackathon-starter/
 
 - `profiles` holds staff accounts only (teacher, lab_assistant, maintenance or admin). Sign-up always creates a `teacher`.
 - `locations` holds one row per room, with a `code` that its QR code encodes.
+- `equipment` holds individual items with a sticker ID (`short_code`, e.g. `CL2-PC15`), a name, a description and a location. Students report by searching an Equipment ID, name or room; `tickets.equipment_id` links the report to the item.
 - `tickets` holds the auto-numbered `CF-000123` tickets.
   - The reporter is either a student (`student_no`, `reporter_name`, `is_anonymous`) or a staff member (`reporter_id`).
   - Each ticket also has a category, severity, status, photos, Claude's suggestions, and the staff review (`validity`, which is unreviewed, valid or invalid).

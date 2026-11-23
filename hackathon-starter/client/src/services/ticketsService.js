@@ -8,7 +8,8 @@ import { query, supabase } from '@/lib/supabase'
 const LIST_SELECT = `
   id, ticket_number, category, severity, status, title, asset_label, photo_urls,
   ai_summary, created_at, updated_at, resolved_at, reporter_id, assigned_to,
-  student_no, reporter_name, is_anonymous, validity,
+  student_no, reporter_name, is_anonymous, validity, equipment_id,
+  equipment:equipment ( id, short_code, name ),
   location:locations!tickets_location_id_fkey ( id, code, name, building ),
   reporter:profiles!tickets_reporter_id_fkey ( id, full_name, role ),
   assignee:profiles!tickets_assigned_to_fkey ( id, full_name, role ),
@@ -21,6 +22,7 @@ const DETAIL_SELECT = `
   reporter:profiles!tickets_reporter_id_fkey ( id, full_name, role ),
   assignee:profiles!tickets_assigned_to_fkey ( id, full_name, role ),
   validator:profiles!tickets_validated_by_fkey ( id, full_name, role ),
+  equipment:equipment ( id, short_code, name, description ),
   updates:ticket_updates (
     id, from_status, to_status, note, created_at,
     author:profiles!ticket_updates_author_id_fkey ( id, full_name, role )
@@ -75,6 +77,7 @@ export const ticketsService = {
         .from('tickets')
         .insert({
           location_id: input.locationId,
+          equipment_id: input.equipmentId ?? null,
           reporter_id: input.reporterId ?? null,
           student_no: input.studentNo ? input.studentNo.trim().toUpperCase() : null,
           reporter_name: input.reporterName?.trim() ?? '',

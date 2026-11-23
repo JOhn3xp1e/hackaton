@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { BadgeCheck, Building2, CalendarClock, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarClock, Cpu, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
 import { CATEGORIES, ROLES, VALIDITY } from '@/lib/constants'
@@ -80,7 +80,7 @@ export default function TicketPage() {
         ]}
         eyebrow={ticket.ticket_number}
         title={ticket.title}
-        description={`${ticket.location?.name}${ticket.asset_label ? ` · ${ticket.asset_label}` : ''} · reported ${timeAgo(ticket.created_at)}`}
+        description={`${ticket.location?.name}${ticket.equipment ? ` · ${ticket.equipment.short_code} ${ticket.equipment.name}` : ticket.asset_label ? ` · ${ticket.asset_label}` : ''} · reported ${timeAgo(ticket.created_at)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {ticket.student_no && <StatusBadge status={ticket.validity} map={VALIDITY} />}
@@ -154,6 +154,14 @@ export default function TicketPage() {
                     {Category?.icon && <Category.icon className="size-4" />} {Category?.label}
                   </span>
                 </Detail>
+                {ticket.equipment && (
+                  <Detail icon={Cpu} label="Equipment">
+                    <span className="font-mono text-[12.5px] font-semibold">{ticket.equipment.short_code}</span> · {ticket.equipment.name}
+                    {ticket.equipment.description && (
+                      <span className="block text-[12.5px] text-muted-foreground">{ticket.equipment.description}</span>
+                    )}
+                  </Detail>
+                )}
                 <Detail icon={MapPin} label="Location">
                   {ticket.location?.name} <span className="font-mono text-[12px] text-muted-foreground">({ticket.location?.code})</span>
                 </Detail>
