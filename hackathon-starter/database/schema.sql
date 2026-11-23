@@ -50,22 +50,22 @@ create trigger profiles_set_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
 
--- Self sign-up may only choose student or teacher. Staff roles are granted by
--- an admin (or the seed script) by updating profiles.role.
+-- Creates the profile on sign-up. Admin / maintenance / lab_assistant roles
+-- are granted by an admin (or the seed script) by updating profiles.role.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  requested_role text := coalesce(new.raw_user_meta_data ->> 'role', 'student');
 begin
+  -- Students report without an account (student number only), so every
+  -- self sign-up is a teacher (= staff). Other staff roles are set by an admin.
   insert into public.profiles (id, full_name, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1)),
-    case when requested_role in ('student', 'teacher') then requested_role else 'student' end
+    'teacher'
   )
   on conflict (id) do nothing;
   return new;
@@ -110,7 +110,7 @@ create table if not exists public.tickets (
                    default ('CF-' || lpad(nextval('public.ticket_number_seq')::text, 6, '0')),
   location_id    uuid        not null
                    constraint tickets_location_id_fkey references public.locations (id) on delete restrict,
-  reporter_id    uuid        not null
+  reporter_id    uuid
                    constraint tickets_reporter_id_fkey references public.profiles (id) on delete cascade,
   assigned_to    uuid
                    constraint tickets_assigned_to_fkey references public.profiles (id) on delete set null,
@@ -133,6 +133,28 @@ create table if not exists public.tickets (
   updated_at     timestamptz not null default now()
 );
 
+-- v2: students report without an account (student number + optional name),
+-- and staff review each report as valid/invalid to award credits.
+alter table public.tickets alter column reporter_id drop not null;
+alter table public.tickets add column if not exists student_no    text;
+alter table public.tickets add column if not exists reporter_name text not null default '';
+alter table public.tickets add column if not exists is_anonymous  boolean not null default false;
+alter table public.tickets add column if not exists validity      text not null default 'unreviewed';
+alter table public.tickets add column if not exists validated_by  uuid
+  constraint tickets_validated_by_fkey references public.profiles (id) on delete set null;
+alter table public.tickets add column if not exists validated_at  timestamptz;
+
+alter table public.tickets drop constraint if exists tickets_student_no_format;
+alter table public.tickets add constraint tickets_student_no_format
+  check (student_no is null or student_no ~ '^[A-Za-z0-9-]{4,20}$');
+alter table public.tickets drop constraint if exists tickets_reporter_name_length;
+alter table public.tickets add constraint tickets_reporter_name_length check (char_length(reporter_name) <= 80);
+alter table public.tickets drop constraint if exists tickets_validity_check;
+alter table public.tickets add constraint tickets_validity_check check (validity in ('unreviewed', 'valid', 'invalid'));
+alter table public.tickets drop constraint if exists tickets_reporter_present;
+alter table public.tickets add constraint tickets_reporter_present check (reporter_id is not null or student_no is not null);
+
+create index if not exists tickets_student_no_idx  on public.tickets (student_no);
 create index if not exists tickets_status_idx      on public.tickets (status);
 create index if not exists tickets_location_idx    on public.tickets (location_id);
 create index if not exists tickets_reporter_idx    on public.tickets (reporter_id);
@@ -227,6 +249,27 @@ $$;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- 5b. ticket_comments — public discussion on a report
+--     Staff comment as their profile (author_id); students with their number.
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.ticket_comments (
+  id            uuid primary key default gen_random_uuid(),
+  ticket_id     uuid        not null
+                  constraint ticket_comments_ticket_id_fkey references public.tickets (id) on delete cascade,
+  author_id     uuid
+                  constraint ticket_comments_author_id_fkey references public.profiles (id) on delete set null,
+  student_no    text        check (student_no is null or student_no ~ '^[A-Za-z0-9-]{4,20}$'),
+  display_name  text        not null default '' check (char_length(display_name) <= 80),
+  is_anonymous  boolean     not null default false,
+  body          text        not null check (char_length(trim(body)) between 1 and 1000),
+  created_at    timestamptz not null default now(),
+  constraint ticket_comments_author_present check (author_id is not null or student_no is not null)
+);
+
+create index if not exists ticket_comments_ticket_idx on public.ticket_comments (ticket_id, created_at);
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- 6. Analytics views
 -- ───────────────────────────────────────────────────────────────────────────
 create or replace view public.ticket_stats_by_category as
@@ -270,8 +313,27 @@ select
                                                                                         as resolved_this_week,
   count(*) filter (where severity = 'critical' and status <> 'resolved')::int           as open_critical,
   round(avg(extract(epoch from (resolved_at - created_at)) / 3600.0)
-          filter (where resolved_at is not null)::numeric, 1)                           as avg_resolution_hours
+          filter (where resolved_at is not null)::numeric, 1)                           as avg_resolution_hours,
+  count(*) filter (where validity = 'unreviewed' and student_no is not null)::int       as unreviewed
 from public.tickets;
+
+-- Credits: +10 for a report staff marked valid, +5 more once it is resolved.
+-- Keep in sync with CREDITS in client/src/lib/constants.js.
+create or replace view public.student_credits as
+select
+  student_no,
+  (array_agg(nullif(reporter_name, '') order by created_at desc)
+     filter (where not is_anonymous and reporter_name <> ''))[1]                       as display_name,
+  count(*)::int                                                                         as reports,
+  count(*) filter (where validity = 'valid')::int                                       as valid_reports,
+  coalesce(sum(case when validity = 'valid'
+                    then 10 + (case when status = 'resolved' then 5 else 0 end)
+                    else 0 end), 0)::int                                                as credits,
+  max(created_at)                                                                       as last_report_at
+from public.tickets
+where student_no is not null
+group by student_no
+order by credits desc, valid_reports desc, last_report_at desc;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
@@ -281,6 +343,7 @@ alter table public.profiles       disable row level security;
 alter table public.locations      disable row level security;
 alter table public.tickets        disable row level security;
 alter table public.ticket_updates disable row level security;
+alter table public.ticket_comments disable row level security;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
@@ -295,6 +358,10 @@ begin
   if not exists (select 1 from pg_publication_tables
                  where pubname = 'supabase_realtime' and tablename = 'ticket_updates') then
     alter publication supabase_realtime add table public.ticket_updates;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and tablename = 'ticket_comments') then
+    alter publication supabase_realtime add table public.ticket_comments;
   end if;
 end;
 $$;
@@ -311,9 +378,12 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
+-- Students report without signing in, so anon may upload too (photos only,
+-- size/type limited by the bucket settings above).
 drop policy if exists "ticket-photos: signed-in upload" on storage.objects;
-create policy "ticket-photos: signed-in upload"
-  on storage.objects for insert to authenticated
+drop policy if exists "ticket-photos: upload" on storage.objects;
+create policy "ticket-photos: upload"
+  on storage.objects for insert to anon, authenticated
   with check (bucket_id = 'ticket-photos');
 
 drop policy if exists "ticket-photos: public read" on storage.objects;

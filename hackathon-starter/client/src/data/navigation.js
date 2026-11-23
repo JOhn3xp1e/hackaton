@@ -1,34 +1,31 @@
-import { ChartColumn, ClipboardList, House, MapPin, Settings, SquarePen, Ticket } from 'lucide-react'
+import { ChartColumn, LayoutDashboard, MapPin, Newspaper, Settings, SquarePen, Ticket, Trophy } from 'lucide-react'
+import { STAFF_ROLES } from '@/lib/constants'
 
 /**
- * Sidebar navigation. `roles` limits an item to those profile roles
- * (omit for everyone). Add a page = add a route in App.jsx + an entry here.
+ * Sidebar navigation. `roles` limits a section/item to those profile roles
+ * (omit for everyone, including signed-out students).
  */
 export const navSections = [
   {
-    title: 'Report',
-    items: [
-      { label: 'Home', to: '/', icon: House, end: true },
-      { label: 'Report an issue', to: '/report', icon: SquarePen },
-      { label: 'My reports', to: '/my-reports', icon: ClipboardList },
-    ],
+    title: 'Campus',
+    items: [{ label: 'Report an issue', to: '/', icon: SquarePen, end: true }],
   },
   {
-    title: 'Maintenance',
-    roles: ['lab_assistant', 'maintenance', 'admin'],
+    title: 'Staff',
+    roles: STAFF_ROLES,
     items: [
+      { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+      { label: 'Reports feed', to: '/reports', icon: Newspaper },
+      { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
       { label: 'All tickets', to: '/tickets', icon: Ticket, end: true },
       { label: 'Analytics', to: '/analytics', icon: ChartColumn },
       { label: 'Locations & QR', to: '/locations', icon: MapPin, roles: ['admin'] },
+      { label: 'Settings', to: '/settings', icon: Settings },
     ],
-  },
-  {
-    title: 'Account',
-    items: [{ label: 'Settings', to: '/settings', icon: Settings }],
   },
 ]
 
-/** Sections and items visible to the given role. */
+/** Sections and items visible to the given role (undefined = signed-out student). */
 export function navForRole(role) {
   return navSections
     .filter((s) => !s.roles || s.roles.includes(role))
@@ -38,10 +35,11 @@ export function navForRole(role) {
 
 /** Pretty labels for auto-generated breadcrumbs */
 export const routeLabels = {
-  '/': 'Home',
-  '/report': 'Report an issue',
+  '/': 'Report',
   '/r': 'Report',
-  '/my-reports': 'My reports',
+  '/reports': 'Reports',
+  '/leaderboard': 'Leaderboard',
+  '/dashboard': 'Dashboard',
   '/tickets': 'Tickets',
   '/analytics': 'Analytics',
   '/locations': 'Locations',

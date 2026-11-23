@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { ClipboardList, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
+import { LayoutDashboard, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react'
 import { useTheme } from '@/providers/ThemeProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/components/ui/toast'
@@ -25,7 +25,7 @@ export function ProfileMenu() {
   const handleSignOut = async () => {
     try {
       await signOut()
-      navigate('/login', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       toast.error('Could not sign out', { description: err.message })
     }
@@ -48,8 +48,8 @@ export function ProfileMenu() {
           <p className="truncate text-[12.5px] text-muted-foreground">{user?.email}</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate('/my-reports')}>
-          <ClipboardList /> My reports
+        <DropdownMenuItem onSelect={() => navigate('/dashboard')}>
+          <LayoutDashboard /> Dashboard
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings /> Settings

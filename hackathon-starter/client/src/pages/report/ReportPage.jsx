@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { MapPin, QrCode, Send, Sparkles } from 'lucide-react'
+import { EyeOff, MapPin, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/components/ui/toast'
-import { CATEGORIES, CATEGORY_KEYS, LOCATION_TYPES, SEVERITIES, SEVERITY_KEYS } from '@/lib/constants'
+import { CATEGORIES, CATEGORY_KEYS, CREDITS, LOCATION_TYPES, ROLES, SEVERITIES, SEVERITY_KEYS, STUDENT_NO_PATTERN } from '@/lib/constants'
 import { zodErrorsToObject } from '@/lib/schemas'
+import { useStudentIdentity } from '@/lib/studentIdentity'
+import { cn } from '@/lib/utils'
 import { locationsService } from '@/services/locationsService'
 import { photosService } from '@/services/photosService'
 import { ticketsService } from '@/services/ticketsService'
@@ -35,15 +37,29 @@ const schema = z.object({
   description: z.string().trim().max(2000, 'Keep it under 2000 characters'),
 })
 
+// Students report without an account: student number required, name optional.
+const studentSchema = z.object({
+  studentNo: z.string().trim().regex(STUDENT_NO_PATTERN, 'Enter your student number (e.g. 2000XXXXXX)'),
+  reporterName: z.string().trim().max(80, 'Keep it under 80 characters'),
+  isAnonymous: z.boolean(),
+})
+
 const SECTION = 'border-b border-border px-5 py-5 last:border-b-0 sm:px-6'
 
 const EMPTY = { locationId: '', category: '', severity: 'medium', title: '', assetLabel: '', description: '' }
 
 export default function ReportPage() {
   const { locationCode } = useParams()
-  const { user } = useAuth()
+  const { user, profile, isStaff } = useAuth()
   const toast = useToast()
+  const [identity, saveIdentity] = useStudentIdentity()
+  const asStaff = Boolean(user && isStaff)
 
+  const [student, setStudent] = useState({
+    studentNo: identity.studentNo,
+    reporterName: identity.name,
+    isAnonymous: identity.anonymous,
+  })
   const [values, setValues] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [photos, setPhotos] = useState([])
@@ -74,6 +90,10 @@ export default function ReportPage() {
 
   const set = (name, value) => {
     setValues((v) => ({ ...v, [name]: value }))
+    if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }))
+  }
+  const setStudentField = (name, value) => {
+    setStudent((s) => ({ ...s, [name]: value }))
     if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }))
   }
 
@@ -114,21 +134,27 @@ export default function ReportPage() {
   const submit = async (e) => {
     e.preventDefault()
     const parsed = schema.safeParse(values)
-    if (!parsed.success) {
-      setErrors(zodErrorsToObject(parsed.error))
+    const who = asStaff ? { success: true, data: {} } : studentSchema.safeParse(student)
+    if (!parsed.success || !who.success) {
+      setErrors({
+        ...(parsed.success ? {} : zodErrorsToObject(parsed.error)),
+        ...(who.success ? {} : zodErrorsToObject(who.error)),
+      })
       toast.error('Please complete the form', { description: 'Some required details are missing.' })
       return
     }
     setSubmitting(true)
     try {
-      const photoUrls = photos.length ? await photosService.uploadAll(photos, user.id) : []
+      const studentNo = asStaff ? null : who.data.studentNo.toUpperCase()
+      const photoUrls = photos.length ? await photosService.uploadAll(photos, asStaff ? user.id : `students/${studentNo}`) : []
       const ticket = await ticketsService.create({
         ...parsed.data,
-        reporterId: user.id,
+        ...(asStaff ? { reporterId: user.id } : { studentNo, reporterName: who.data.reporterName, isAnonymous: who.data.isAnonymous }),
         photoUrls,
         ai,
       })
-      setCreated({ ...ticket, title: parsed.data.title, locationName: location?.name })
+      if (!asStaff) saveIdentity({ studentNo, name: who.data.reporterName, anonymous: who.data.isAnonymous })
+      setCreated({ ...ticket, title: parsed.data.title, locationName: location?.name, isStudent: !asStaff })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       toast.error('Report not submitted', { description: err.message })
@@ -148,7 +174,7 @@ export default function ReportPage() {
         description={`We couldn't find a location with code "${decodeURIComponent(locationCode)}". The QR sticker may be outdated.`}
         action={
           <Button asChild variant="outline">
-            <Link to="/report">Pick the location manually</Link>
+            <Link to="/">Pick the location manually</Link>
           </Button>
         }
       />
@@ -161,12 +187,84 @@ export default function ReportPage() {
     <>
       <PageHeader
         eyebrow={locationCode ? 'Scanned QR code' : 'New report'}
-        title="Report an issue"
-        description="Tell maintenance what's broken. You'll get a ticket number to track the repair."
+        title="Report a broken facility"
+        description="No account needed. Tell maintenance what's broken, get a ticket number, and earn credits when your report is confirmed."
       />
 
       <form onSubmit={submit} noValidate className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
         <div className="grid gap-0 rounded-lg border border-border bg-card shadow-xs">
+          <FormSection
+            className={SECTION}
+            title="About you"
+            description={asStaff ? 'You are signed in, so this report is filed under your staff account.' : 'Your student number links the report to you for tracking and credits.'}
+          >
+            {asStaff ? (
+              <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
+                <UserRound className="size-5 shrink-0 text-muted-foreground" />
+                <span>
+                  Reporting as <span className="font-medium">{profile?.full_name}</span>{' '}
+                  <span className="text-muted-foreground">({ROLES[profile?.role]})</span>
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Student number" htmlFor="studentNo" error={errors.studentNo} required>
+                    <Input
+                      id="studentNo"
+                      value={student.studentNo}
+                      onChange={(e) => setStudentField('studentNo', e.target.value)}
+                      placeholder="2000XXXXXX"
+                      autoComplete="off"
+                      className="font-mono uppercase"
+                      maxLength={20}
+                    />
+                  </Field>
+                  <Field label="Name (optional)" htmlFor="reporterName" error={errors.reporterName}>
+                    <Input
+                      id="reporterName"
+                      value={student.reporterName}
+                      onChange={(e) => setStudentField('reporterName', e.target.value)}
+                      placeholder="Juan Dela Cruz"
+                      autoComplete="name"
+                      disabled={student.isAnonymous}
+                      maxLength={80}
+                    />
+                  </Field>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={student.isAnonymous}
+                  onClick={() => setStudentField('isAnonymous', !student.isAnonymous)}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-background p-3 text-left transition-colors hover:bg-accent/40"
+                >
+                  <span
+                    className={cn(
+                      'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                      student.isAnonymous ? 'bg-primary' : 'bg-muted-foreground/30',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform',
+                        student.isAnonymous ? 'translate-x-4.5' : 'translate-x-0.5',
+                      )}
+                    />
+                  </span>
+                  <span className="grid gap-0.5">
+                    <span className="flex items-center gap-1.5 text-sm font-medium">
+                      <EyeOff className="size-3.5" /> Report anonymously
+                    </span>
+                    <span className="text-[12.5px] text-muted-foreground">
+                      Your name is hidden on the public feed. Staff still see your student number so you can receive credits.
+                    </span>
+                  </span>
+                </button>
+              </>
+            )}
+          </FormSection>
+
           <FormSection className={SECTION} title="Where is it?" description={locationCode ? 'Location from the QR code you scanned.' : 'Pick the room or area.'}>
             {locationCode ? (
               scanned.isLoading ? (
@@ -278,7 +376,13 @@ export default function ReportPage() {
           <Button type="submit" size="lg" loading={submitting} disabled={aiLoading} leftIcon={<Send />} className="w-full">
             {submitting ? (photos.length ? 'Uploading photos…' : 'Submitting…') : 'Submit report'}
           </Button>
-          <p className="text-center text-[12px] text-muted-foreground">You can follow the repair under “My reports”.</p>
+          {!asStaff && (
+            <p className="rounded-md border border-border bg-card px-3 py-2 text-center text-[12px] text-muted-foreground">
+              Valid reports earn <span className="font-semibold text-foreground">+{CREDITS.valid} credits</span>, plus{' '}
+              <span className="font-semibold text-foreground">+{CREDITS.resolvedBonus}</span> when fixed. Keep your ticket number to
+              track the repair.
+            </p>
+          )}
         </aside>
       </form>
     </>

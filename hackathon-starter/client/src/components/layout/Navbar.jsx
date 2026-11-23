@@ -1,22 +1,22 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { Menu } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { LogIn, Menu } from 'lucide-react'
+import { useAuth } from '@/providers/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs'
 import { SearchBar } from '@/components/shared/SearchBar'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ProfileMenu } from './ProfileMenu'
-import { useAuth } from '@/providers/AuthProvider'
 
-/** Top navigation bar: mobile menu, breadcrumbs, global search, theme, notifications, profile. */
+/** Top bar: mobile menu, breadcrumbs, search, theme, and staff sign-in / profile. */
 export function Navbar({ onMenuClick }) {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
+  const { user, isStaff, isLoading } = useAuth()
 
-  const { isStaff } = useAuth()
-
-  // A ticket number jumps straight to the ticket; anything else searches the list.
+  // A ticket number jumps straight to the ticket; anything else searches a list.
   const onSearch = (e) => {
     e.preventDefault()
     const q = query.trim()
@@ -25,7 +25,7 @@ export function Navbar({ onMenuClick }) {
       const digits = q.replace(/\D/g, '').padStart(6, '0')
       navigate(`/tickets/CF-${digits}`)
     } else {
-      navigate(`${isStaff ? '/tickets' : '/my-reports'}?search=${encodeURIComponent(q)}`)
+      navigate(`/tickets?search=${encodeURIComponent(q)}`)
     }
     setQuery('')
   }
@@ -39,13 +39,28 @@ export function Navbar({ onMenuClick }) {
       <Breadcrumbs className="hidden md:flex" />
 
       <div className="ml-auto flex items-center gap-1.5">
-        <form onSubmit={onSearch} className="hidden w-64 sm:block">
-          <SearchBar value={query} onChange={setQuery} placeholder="Ticket # or keyword…" shortcut />
-        </form>
+        {/* Search is a staff tool; students only report. */}
+        {isStaff && (
+          <form onSubmit={onSearch} className="hidden w-64 sm:block">
+            <SearchBar value={query} onChange={setQuery} placeholder="Ticket # or keyword…" shortcut />
+          </form>
+        )}
         <ThemeToggle />
-        <NotificationsMenu />
-        <div className="mx-1.5 hidden h-6 w-px bg-border sm:block" />
-        <ProfileMenu />
+        {user ? (
+          <>
+            {isStaff && <NotificationsMenu />}
+            <div className="mx-1.5 hidden h-6 w-px bg-border sm:block" />
+            <ProfileMenu />
+          </>
+        ) : (
+          !isLoading && (
+            <Button asChild variant="outline" size="sm" className="ml-1">
+              <Link to={`/login?next=${encodeURIComponent(location.pathname === '/' ? '/dashboard' : location.pathname)}`}>
+                <LogIn /> <span className="hidden sm:inline">Staff sign in</span>
+              </Link>
+            </Button>
+          )
+        )}
       </div>
     </header>
   )

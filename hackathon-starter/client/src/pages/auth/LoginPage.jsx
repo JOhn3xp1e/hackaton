@@ -1,5 +1,5 @@
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
-import { LogIn, QrCode } from 'lucide-react'
+import { ArrowLeft, LogIn, SquarePen } from 'lucide-react'
 import { z } from 'zod'
 import { useForm } from '@/hooks/useForm'
 import { useAuth } from '@/providers/AuthProvider'
@@ -13,9 +13,9 @@ const schema = z.object({
   password: z.string().min(1, 'Enter your password'),
 })
 
-/** Only allow in-app redirects (never an absolute URL from the query string). */
+/** Only allow in-app redirects (never an absolute URL from the query string). Staff land on the dashboard. */
 export function safeNext(value) {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/dashboard'
 }
 
 export default function LoginPage() {
@@ -35,22 +35,20 @@ export default function LoginPage() {
 
   if (!isLoading && user) return <Navigate to={next} replace />
 
-  const fromQr = next.startsWith('/r/')
-
   return (
     <AuthLayout
-      title="Welcome back"
-      description="Sign in with your school account to report and track issues."
+      title="Teacher & staff sign in"
+      description="Manage reports, update repair status and review student reports for credits."
       notice={
-        fromQr && (
-          <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5 text-sm">
-            <QrCode className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>
-              You scanned a room QR code. Sign in and we&apos;ll take you straight to the report form for{' '}
-              <span className="font-mono font-medium">{decodeURIComponent(next.slice(3))}</span>.
-            </span>
-          </div>
-        )
+        <Link
+          to="/"
+          className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5 text-sm transition-colors hover:bg-primary/10"
+        >
+          <SquarePen className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            <span className="font-medium">Student?</span> You don&apos;t need an account. Report an issue with just your student number →
+          </span>
+        </Link>
       }
     >
       <form onSubmit={form.handleSubmit} noValidate className="grid gap-4">
@@ -69,12 +67,17 @@ export default function LoginPage() {
           Sign in
         </Button>
       </form>
-      <p className="text-center text-sm text-muted-foreground">
-        New here?{' '}
-        <Link to={`/signup${params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-medium text-primary hover:underline">
-          Create an account
+      <div className="grid gap-2 text-center text-sm text-muted-foreground">
+        <p>
+          Teacher without an account?{' '}
+          <Link to={`/signup${params.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-medium text-primary hover:underline">
+            Create one
+          </Link>
+        </p>
+        <Link to="/" className="inline-flex items-center justify-center gap-1 hover:text-foreground">
+          <ArrowLeft className="size-3.5" /> Back to reporting
         </Link>
-      </p>
+      </div>
     </AuthLayout>
   )
 }
