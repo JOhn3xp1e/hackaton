@@ -14,6 +14,7 @@ const schema = z.object({
   SUPABASE_URL: z.string().url().optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -32,6 +33,7 @@ export const env = {
   isTest: e.NODE_ENV === 'test',
   port: e.PORT,
   corsOrigins: e.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
+  anthropicApiKey: e.ANTHROPIC_API_KEY || '',
   supabase: {
     url: e.SUPABASE_URL || '',
     key: e.SUPABASE_SERVICE_ROLE_KEY || e.SUPABASE_ANON_KEY || '',

@@ -1,13 +1,14 @@
 import { createApp } from './app.js'
 import { env } from './config/env.js'
-import { itemsDataSource } from './services/items.service.js'
+import { isSupabaseEnabled } from './config/supabase.js'
 
 const app = createApp()
 
 const server = app.listen(env.port, () => {
   console.log(`\n  🚀 API ready on http://localhost:${env.port}`)
   console.log(`     health   → http://localhost:${env.port}/api/health`)
-  console.log(`     data     → ${itemsDataSource === 'supabase' ? 'Supabase (PostgreSQL)' : 'in-memory store (set SUPABASE_* in .env to use Supabase)'}`)
+  console.log(`     supabase → ${isSupabaseEnabled ? 'configured' : 'NOT configured (set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env)'}`)
+  console.log(`     ai       → ${env.anthropicApiKey ? 'Claude triage enabled' : 'disabled (set ANTHROPIC_API_KEY in .env)'}`)
   console.log(`     cors     → ${env.corsOrigins.join(', ')}\n`)
 })
 

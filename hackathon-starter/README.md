@@ -1,45 +1,61 @@
-# Hackathon Starter Kit
+# CampusFix
 
-A reusable full-stack foundation for an 8-hour hackathon with three people (frontend, backend, database). It's deliberately **problem-agnostic**: a design system, a component library, an example CRUD resource running end to end, and a playbook for adapting it to whatever brief you get.
+**Campus facility & equipment reporting.** Students and teachers scan a QR code in any classroom or lab, report a broken computer, projector, chair, light or Wi-Fi problem with photos, and track it until maintenance marks it fixed. Staff get a live dashboard, Claude-powered triage, and analytics on the most-reported problems.
+
+| Who | What they do in CampusFix |
+| --- | --- |
+| Students & teachers | Scan the room QR → report with photo → get a ticket number → watch status live |
+| Lab assistants & maintenance | Priority queue, change status with notes, assign tickets, real-time alerts |
+| Administrators | Everything above + manage locations and print QR sticker sheets |
 
 | Layer | Stack |
 | --- | --- |
-| Frontend | React 19 · Vite 7 · JavaScript · Tailwind CSS 4 · shadcn/ui conventions (Radix) · Motion · Lucide · React Router 7 · Zod |
-| Backend | Node.js ≥ 20.19 · Express 5 · REST · Zod validation · CORS · dotenv |
-| Database | Supabase · PostgreSQL · `@supabase/supabase-js` · RLS |
-| Tooling | npm · Git/GitHub · Postman collection · Node built-in test runner |
+| Frontend | React 19 · Vite 7 · JavaScript · Tailwind CSS 4 · shadcn/ui conventions · Motion · Lucide · React Router 7 · Zod · `qrcode` |
+| Data | Supabase (PostgreSQL, Auth, Storage, Realtime) called directly from the browser |
+| Server | Express 5 — only for secrets: `POST /api/triage` (Claude via `@anthropic-ai/sdk`) and health checks |
 
 ---
 
-## Quick start
+## Setup (about 10 minutes)
 
 ```bash
-# 1. Install everything (root + client + server)
+# 1. Install dependencies (root + client + server)
 npm run setup
 
-# 2. Create local env files (defaults work out of the box)
-cp client/.env.example client/.env
-cp server/.env.example server/.env
-
-# 3. Run frontend + backend together
-npm run dev
+# 2. Env files
+cp client/.env.example client/.env     # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+cp server/.env.example server/.env     # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY
 ```
 
-- Frontend: <http://localhost:5173>
-- API: <http://localhost:4000/api/health>
+3. In the Supabase **SQL Editor**, run `database/schema.sql`, then `database/seed.sql` (12 campus locations).
+4. Optional but recommended for the demo: under **Authentication → Providers → Email**, turn off "Confirm email" so new sign-ups can log in immediately.
+5. Create the demo accounts and 30 days of ticket history:
 
-**No Supabase account is needed to start.** The frontend runs on mock data (`VITE_USE_MOCKS=true`) and the API falls back to an in-memory store. Connect Supabase whenever the database is ready (see [`database/README.md`](database/README.md)).
+   ```bash
+   npm run seed:demo --prefix server
+   ```
 
-### Scripts (run from the repo root)
+   This prints the logins (`admin@`, `maintenance@`, `labassistant@`, `teacher@`, `student@campusfix.demo`) and the shared demo password.
+
+6. `npm run dev` → <http://localhost:5173>
 
 | Command | What it does |
 | --- | --- |
-| `npm run setup` | Install root, client and server dependencies |
-| `npm run dev` | Client and server concurrently, with colour-coded logs |
-| `npm run dev:client` / `dev:server` | Run one side only |
-| `npm run build` | Production build of the client → `client/dist` |
-| `npm start` | Start the API without the file watcher |
-| `npm run test:api` | API test suite (13 tests, CRUD, validation and error cases) |
+| `npm run dev` | Client and server together |
+| `npm run build` | Production build of the client |
+| `npm run test:api` | Server tests (health, auth and validation; no Claude calls) |
+| `npm run seed:demo --prefix server` | Demo users and historical tickets (idempotent) |
+
+---
+
+## Demo script (golden path)
+
+1. **Admin** → *Locations & QR* → print or download the QR for **Computer Laboratory 2** (`CL-LAB-2`).
+2. **Student** on a phone (same Wi-Fi, open the dev server's network URL) scans it → signs in → the form opens with the lab pre-filled.
+3. Type "Computer 15 won't turn on" → **Suggest with AI** (Claude picks *Computers · Medium* and writes a technician summary) → attach a photo → **Submit** → gets ticket `CF-00xxxx`.
+4. **Maintenance** (second browser) sees a live toast and the ticket at the top of the priority queue → opens it → **Mark as In Progress** with a note.
+5. The student's ticket page updates instantly, without a refresh. Maintenance then marks it **Resolved**.
+6. *Analytics* shows the most-reported problem categories, the hotspot rooms, and reports vs. fixes over 30 days.
 
 ---
 
@@ -47,122 +63,26 @@ npm run dev
 
 ```
 hackathon-starter/
-├── client/                         React app (Frontend dev)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ui/                 primitives — button, input, modal, tabs, toast, …
-│   │   │   ├── shared/             composites — DataTable, StatCard, PageHeader, Charts, …
-│   │   │   ├── layout/             AppLayout, Sidebar, Navbar, menus
-│   │   │   └── feedback/           EmptyState, ErrorState, LoadingSkeleton, ErrorBoundary
-│   │   ├── pages/                  Dashboard, items/ (CRUD reference), Components, Settings, 404
-│   │   ├── hooks/                  useAsync, useMutation, useForm, useDebounce, useDisclosure, …
-│   │   ├── services/               apiClient + one service per resource (mock ⇄ http switch)
-│   │   ├── lib/                    config, utils, motion presets, zod schemas, supabase client
-│   │   ├── data/                   navigation + mock/ data (clearly labelled)
-│   │   ├── providers/              ThemeProvider
-│   │   ├── styles/globals.css      ← design tokens (re-theme here)
-│   │   ├── App.jsx                 routes
-│   │   └── main.jsx                providers
-│   └── components.json             shadcn/ui config
-├── server/                         Express API (Backend dev)
-│   ├── src/
-│   │   ├── config/                 env (validated), supabase client
-│   │   ├── routes/                 /api/health, /api/items
-│   │   ├── controllers/            thin HTTP handlers
-│   │   ├── services/               business logic + data access (Supabase or in-memory)
-│   │   ├── validators/             Zod request schemas
-│   │   ├── middleware/             validate, errorHandler, notFound, requestLogger
-│   │   ├── utils/                  ApiError, response helpers, case conversion
-│   │   ├── app.js                  app factory (testable)
-│   │   └── server.js               listen + graceful shutdown
-│   └── tests/api.test.js
-├── database/                       SQL (Database dev)
-│   ├── schema.sql                  tables, constraints, trigger, RLS (re-runnable)
-│   ├── seed.sql                    demo data (idempotent)
-│   ├── examples/crud.sql
-│   └── README.md
-└── docs/
-    ├── API_CONTRACT.md             ← the team agreement
-    ├── DATABASE_GUIDE.md
-    ├── TEAM_WORKFLOW.md            roles, git, commits, timeline
-    ├── HACKATHON_ADAPTATION_GUIDE.md  ← read this when the brief drops
-    ├── DESIGN_SYSTEM.md
-    └── postman_collection.json
+├── client/src/
+│   ├── pages/            auth/ (login, signup) · report/ (QR + form) · home/ (reporter, staff) ·
+│   │                     staff/ (tickets, analytics, locations) · TicketPage · MyReportsPage · Settings
+│   ├── components/       ui/ · shared/ · layout/ · feedback/ · report/ · tickets/ · locations/ · auth/
+│   ├── services/         ticketsService, locationsService, photosService, analyticsService,
+│   │                     profilesService (Supabase) · triageService (Express)
+│   ├── providers/        AuthProvider (session + profile/role), ThemeProvider
+│   └── lib/              supabase client + query helper, constants (categories/severity/status)
+├── server/
+│   ├── src/              routes/triage · services/triage.service (Claude) · middleware/requireAuth
+│   └── scripts/          seed-demo.js
+└── database/             schema.sql (tables, triggers, views, realtime, storage) · seed.sql
 ```
 
----
+### Data model
 
-## How data flows
+- `profiles` holds each user's name and role (student, teacher, lab_assistant, maintenance or admin). A trigger creates it on sign-up.
+- `locations` holds one row per room, with a `code` that its QR code encodes.
+- `tickets` holds the auto-numbered `CF-000123` tickets, with a category, severity, status, photos and Claude's suggestions.
+- `ticket_updates` is the status timeline. The first entry is written automatically. Staff changes go through `update_ticket_status()`.
+- The analytics views are `ticket_overview`, `ticket_stats_by_category`, `ticket_stats_by_location` and `ticket_daily_counts`.
 
-```
-Page  →  hook (useAsync / useForm)  →  service (itemsService)  ─┬─ mock branch  → data/mock/*      (VITE_USE_MOCKS=true)
-                                                                 └─ http branch  → apiClient → /api  (VITE_USE_MOCKS=false)
-                                                                                          │
-                                         Express: route → validate (Zod) → controller → service ─┬─ Supabase (if SUPABASE_* set)
-                                                                                                └─ in-memory store
-```
-
-- **Same response shape everywhere:** `{ success, data, meta }` or `{ success: false, error: { code, message, details } }`.
-- **Switching mock to real:** change `VITE_USE_MOCKS` in `client/.env` and restart Vite. No page code changes.
-- **Switching memory to Supabase:** fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `server/.env` and restart the API.
-
-## What's included
-
-**Design system:** tokenised light and dark themes, a blueprint grid, editorial typography (Inter Tight, Inter, JetBrains Mono), restrained shadows. → [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md)
-
-**Components (all working, all demoed at `/components`):** Button · Input · Textarea · Select · Checkbox · Badge · Card · Modal · Confirmation Dialog · Dropdown · Tabs · Tooltip · Toast · Data Table · Search Bar · Pagination · Sidebar · Navbar · Breadcrumbs · Stat Card · Empty State · Loading Skeleton · Error State · Page Header · Form Container, plus Field, Avatar, Spinner, Charts, Animated Counter, Text Reveal and Error Boundary.
-
-**Motion:** page transitions, staggered entrances, text reveals, button and card micro-interactions, modal enter and exit, sidebar collapse and drawer, animated counters, loading states. It respects `prefers-reduced-motion`.
-
-**Sample dashboard (`/`):** responsive sidebar, top nav, KPI stat cards, an area chart and a bar chart, a recent-activity table, quick actions, notifications and a profile dropdown. All of it uses clearly labelled mock data.
-
-**CRUD reference (`/items`):** search, filter, server-side pagination, create and edit modal with client and server validation, delete confirmation, toasts. **Copy this page for your real resource.**
-
-**Backend:** health and DB-readiness endpoints, a full items REST API, Zod validation (422 with per-field details), a central error handler, CORS whitelist, validated env, request logging, tests.
-
-**Database:** a schema with CHECK constraints, indexes, an `updated_at` trigger, RLS policies and templates (owner-based policies, a related table), idempotent seed data, example queries.
-
----
-
-## Environment variables
-
-| File | Variable | Default | Notes |
-| --- | --- | --- | --- |
-| `client/.env` | `VITE_APP_NAME` | Hackathon Starter | Shown in the sidebar |
-| | `VITE_API_URL` | `/api` | Full URL in production |
-| | `VITE_PROXY_TARGET` | `http://localhost:4000` | Dev proxy target |
-| | `VITE_USE_MOCKS` | `true` | `false` = real API |
-| | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | empty | Optional, **anon key only** |
-| `server/.env` | `PORT` | `4000` | |
-| | `CORS_ORIGIN` | `http://localhost:5173,…` | Comma-separated |
-| | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | empty | **Service role key is server-only** |
-
-> 🔒 Never commit `.env` files (they're git-ignored). Never put a service-role key in `client/` or in any `VITE_*` variable.
-
-## Hackathon day
-
-1. Read [`docs/HACKATHON_ADAPTATION_GUIDE.md`](docs/HACKATHON_ADAPTATION_GUIDE.md) together (step by step, with time boxes).
-2. Follow [`docs/TEAM_WORKFLOW.md`](docs/TEAM_WORKFLOW.md) for branches, commits and the sync points.
-3. Agree on endpoints in [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) **before** coding.
-
-## Pre-hackathon checklist (do this the week before)
-
-- [ ] Every teammate clones the repo and runs `npm run setup && npm run dev` successfully.
-- [ ] Node ≥ 20.19 everywhere (`node -v`).
-- [ ] Push to a GitHub repo and add all three teammates. Protect `main` if you like.
-- [ ] Create a Supabase project, run `schema.sql` and `seed.sql`, and confirm `/api/health/db` reports `supabase`.
-- [ ] Import `docs/postman_collection.json` into Postman.
-- [ ] Do a practice deploy: client to Vercel or Netlify, API to Render or Railway.
-- [ ] Each person reads their own doc, and everyone browses `/components`.
-
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| UI shows "Cannot reach the server" | The API isn't running (`npm run dev:server`), or `VITE_PROXY_TARGET` is wrong |
-| `Port 4000 is already in use` | Change `PORT` in `server/.env` **and** `VITE_PROXY_TARGET` in `client/.env` |
-| CORS error in production | Add the deployed frontend URL to `CORS_ORIGIN` |
-| Env change has no effect | Restart Vite or the server. Env is read at startup |
-| API says `data → in-memory store` | `SUPABASE_URL` or the key is missing in `server/.env` |
-| Supabase `permission denied` from the browser | RLS is working: add a policy, or route the call through the API |
-| `npm install` warns about esbuild install scripts | Harmless on npm 11. The esbuild binary still ships as an optional dependency |
+> **Prototype security:** RLS is disabled on the public tables, so anyone with the anon key can read and write them (see CLAUDE.md). Before a real deployment, enable RLS and add policies, for example so that reporters can only see their own tickets and only staff can update status.

@@ -7,15 +7,27 @@ import { SearchBar } from '@/components/shared/SearchBar'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { NotificationsMenu } from './NotificationsMenu'
 import { ProfileMenu } from './ProfileMenu'
+import { useAuth } from '@/providers/AuthProvider'
 
 /** Top navigation bar: mobile menu, breadcrumbs, global search, theme, notifications, profile. */
 export function Navbar({ onMenuClick }) {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
 
+  const { isStaff } = useAuth()
+
+  // A ticket number jumps straight to the ticket; anything else searches the list.
   const onSearch = (e) => {
     e.preventDefault()
-    if (query.trim()) navigate(`/items?search=${encodeURIComponent(query.trim())}`)
+    const q = query.trim()
+    if (!q) return
+    if (/^CF-?\d{3,}$/i.test(q)) {
+      const digits = q.replace(/\D/g, '').padStart(6, '0')
+      navigate(`/tickets/CF-${digits}`)
+    } else {
+      navigate(`${isStaff ? '/tickets' : '/my-reports'}?search=${encodeURIComponent(q)}`)
+    }
+    setQuery('')
   }
 
   return (
@@ -28,7 +40,7 @@ export function Navbar({ onMenuClick }) {
 
       <div className="ml-auto flex items-center gap-1.5">
         <form onSubmit={onSearch} className="hidden w-64 sm:block">
-          <SearchBar value={query} onChange={setQuery} placeholder="Search items…" shortcut />
+          <SearchBar value={query} onChange={setQuery} placeholder="Ticket # or keyword…" shortcut />
         </form>
         <ThemeToggle />
         <NotificationsMenu />

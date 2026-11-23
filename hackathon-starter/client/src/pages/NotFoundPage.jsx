@@ -12,7 +12,7 @@ export default function NotFoundPage() {
         <p className="max-w-sm text-sm text-muted-foreground">The link may be broken, or the page may have moved.</p>
         <Button asChild variant="outline" className="mt-2">
           <Link to="/">
-            <ArrowLeft /> Back to dashboard
+            <ArrowLeft /> Back to home
           </Link>
         </Button>
       </div>

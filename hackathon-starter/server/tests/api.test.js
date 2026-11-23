@@ -1,6 +1,6 @@
 /**
- * API smoke tests — run with `npm test` (uses Node's built-in test runner, no deps).
- * Runs against the in-memory store unless SUPABASE_* env vars are set.
+ * API smoke tests — run with `npm test` (Node's built-in test runner, no deps).
+ * These never call Claude: they cover health, auth and validation paths only.
  */
 process.env.NODE_ENV = 'test'
 
@@ -20,108 +20,53 @@ before(async () => {
 
 after(() => new Promise((r) => server.close(r)))
 
-const call = async (method, path, body) => {
+const call = async (method, path, body, headers = {}) => {
   const res = await fetch(base + path, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   })
   return { status: res.status, body: await res.json() }
 }
 
 describe('health', () => {
-  test('GET /health → 200 ok', async () => {
+  test('GET /health → 200 with integration flags', async () => {
     const { status, body } = await call('GET', '/health')
     assert.equal(status, 200)
     assert.equal(body.success, true)
     assert.equal(body.data.status, 'ok')
-  })
-
-  test('GET /health/db → 200', async () => {
-    const { status } = await call('GET', '/health/db')
-    assert.equal(status, 200)
+    assert.equal(typeof body.data.supabase, 'boolean')
+    assert.equal(typeof body.data.aiTriage, 'boolean')
   })
 })
 
-describe('items CRUD', () => {
-  let id
-
-  test('GET /items → paginated list', async () => {
-    const { status, body } = await call('GET', '/items?page=1&pageSize=2')
-    assert.equal(status, 200)
-    assert.ok(Array.isArray(body.data))
-    assert.ok(body.data.length <= 2)
-    assert.deepEqual(Object.keys(body.meta).sort(), ['page', 'pageSize', 'total', 'totalPages'])
-  })
-
-  test('POST /items with invalid body → 422 with field details', async () => {
-    const { status, body } = await call('POST', '/items', { title: 'x', status: 'nope' })
-    assert.equal(status, 422)
+describe('triage', () => {
+  test('POST /triage without a token → 401', async () => {
+    const { status, body } = await call('POST', '/triage', { title: 'Computer 15 will not boot' })
+    assert.equal(status, 401)
     assert.equal(body.success, false)
-    assert.equal(body.error.code, 'VALIDATION_ERROR')
-    assert.ok(body.error.details.title)
-    assert.ok(body.error.details.status)
-    assert.ok(body.error.details.category)
+    assert.equal(body.error.code, 'UNAUTHORIZED')
   })
 
-  test('POST /items → 201 created with defaults', async () => {
-    const { status, body } = await call('POST', '/items', { title: 'Test item', category: 'Testing' })
-    assert.equal(status, 201)
-    assert.equal(body.data.title, 'Test item')
-    assert.equal(body.data.status, 'todo')
-    assert.equal(body.data.priority, 'medium')
-    assert.ok(body.data.id)
-    assert.ok(body.data.createdAt)
-    id = body.data.id
+  test('POST /triage with a malformed Authorization header → 401', async () => {
+    const { status } = await call('POST', '/triage', { title: 'Projector flickers' }, { Authorization: 'Token abc' })
+    assert.equal(status, 401)
   })
 
-  test('GET /items/:id → 200', async () => {
-    const { status, body } = await call('GET', `/items/${id}`)
-    assert.equal(status, 200)
-    assert.equal(body.data.id, id)
-  })
-
-  test('PATCH /items/:id → only updates provided fields', async () => {
-    await call('PATCH', `/items/${id}`, { status: 'in_progress' })
-    const { status, body } = await call('PATCH', `/items/${id}`, { title: 'Renamed item' })
-    assert.equal(status, 200)
-    assert.equal(body.data.title, 'Renamed item')
-    assert.equal(body.data.status, 'in_progress', 'status must not be reset to default')
-  })
-
-  test('PATCH with empty body → 422', async () => {
-    const { status } = await call('PATCH', `/items/${id}`, {})
-    assert.equal(status, 422)
-  })
-
-  test('GET /items?search= finds the item', async () => {
-    const { body } = await call('GET', '/items?search=renamed')
-    assert.ok(body.data.some((r) => r.id === id))
-  })
-
-  test('DELETE /items/:id → 200, then 404', async () => {
-    assert.equal((await call('DELETE', `/items/${id}`)).status, 200)
-    const { status, body } = await call('GET', `/items/${id}`)
-    assert.equal(status, 404)
-    assert.equal(body.error.code, 'NOT_FOUND')
-  })
-
-  test('GET /items/not-a-uuid → 422', async () => {
-    const { status } = await call('GET', '/items/not-a-uuid')
-    assert.equal(status, 422)
+  test('POST /triage with invalid JSON → 400', async () => {
+    const res = await fetch(`${base}/triage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"title":',
+    })
+    assert.equal(res.status, 400)
   })
 })
 
 describe('errors', () => {
-  test('unknown route → 404 JSON', async () => {
+  test('unknown route → 404 envelope', async () => {
     const { status, body } = await call('GET', '/does-not-exist')
     assert.equal(status, 404)
     assert.equal(body.success, false)
-  })
-
-  test('malformed JSON → 400', async () => {
-    const res = await fetch(`${base}/items`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bad' })
-    assert.equal(res.status, 400)
-    assert.equal((await res.json()).error.code, 'BAD_REQUEST')
   })
 })

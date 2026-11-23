@@ -266,3 +266,20 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Print: QR sticker sheet (Locations page) ───────────────────────────── */
+@media print {
+  aside,
+  header,
+  footer,
+  .bg-blueprint {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

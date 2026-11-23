@@ -1,0 +1,166 @@
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router'
+import { Building2, CalendarClock, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
+import { useAsync } from '@/hooks/useAsync'
+import { useAuth } from '@/providers/AuthProvider'
+import { CATEGORIES, ROLES } from '@/lib/constants'
+import { formatDate, timeAgo } from '@/lib/utils'
+import { ticketsService } from '@/services/ticketsService'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { SEVERITY_MAP, StatusBadge } from '@/components/shared/StatusBadge'
+import { StatusProgress } from '@/components/tickets/StatusProgress'
+import { Timeline } from '@/components/tickets/Timeline'
+import { StaffActions } from '@/components/tickets/StaffActions'
+import { PhotoGallery } from '@/components/tickets/PhotoGallery'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { LoadingSkeleton } from '@/components/feedback/LoadingSkeleton'
+import { ErrorState } from '@/components/feedback/ErrorState'
+import { EmptyState } from '@/components/feedback/EmptyState'
+
+function Detail({ icon: Icon, label, children }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <div className="grid min-w-0 gap-0.5">
+        <dt className="text-[12px] text-muted-foreground">{label}</dt>
+        <dd className="text-sm">{children}</dd>
+      </div>
+    </div>
+  )
+}
+
+export default function TicketPage() {
+  const { ticketNumber } = useParams()
+  const { isStaff } = useAuth()
+  const [flash, setFlash] = useState(false)
+
+  const { data: ticket, isLoading, error, refetch } = useAsync(() => ticketsService.getByNumber(ticketNumber), [ticketNumber])
+
+  // Live: refresh when staff change the status or add a note.
+  useEffect(() => {
+    if (!ticket?.id) return undefined
+    return ticketsService.subscribeToUpdates(ticket.id, () => {
+      refetch()
+      setFlash(true)
+      setTimeout(() => setFlash(false), 1200)
+    })
+  }, [ticket?.id, refetch])
+
+  if (isLoading && !ticket) return <LoadingSkeleton variant="detail" />
+  if (error) return <ErrorState error={error} onRetry={refetch} />
+  if (!ticket) {
+    return (
+      <EmptyState
+        icon={SearchX}
+        title="Ticket not found"
+        description={`There is no report with number ${ticketNumber}. Check the number and try again.`}
+        action={
+          <Button asChild variant="outline">
+            <Link to="/my-reports">Back to my reports</Link>
+          </Button>
+        }
+      />
+    )
+  }
+
+  const Category = CATEGORIES[ticket.category]
+
+  return (
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Home', to: '/' },
+          isStaff ? { label: 'Tickets', to: '/tickets' } : { label: 'My reports', to: '/my-reports' },
+          { label: ticket.ticket_number },
+        ]}
+        eyebrow={ticket.ticket_number}
+        title={ticket.title}
+        description={`${ticket.location?.name}${ticket.asset_label ? ` · ${ticket.asset_label}` : ''} · reported ${timeAgo(ticket.created_at)}`}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={ticket.severity} map={SEVERITY_MAP} />
+            <StatusBadge status={ticket.status} />
+          </div>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
+        <div className="grid gap-6">
+          <Card className={flash ? 'ring-2 ring-primary/30 transition-shadow' : 'transition-shadow'}>
+            <CardContent className="grid gap-5 p-5">
+              <StatusProgress status={ticket.status} labels />
+              {ticket.status === 'resolved' && ticket.resolved_at && (
+                <p className="rounded-md border border-success/25 bg-success/8 px-3 py-2 text-sm text-success">
+                  Fixed {timeAgo(ticket.resolved_at)} — thanks for reporting!
+                </p>
+              )}
+              {ticket.description ? (
+                <p className="whitespace-pre-line text-sm leading-relaxed">{ticket.description}</p>
+              ) : (
+                <p className="text-sm italic text-muted-foreground">No extra details were provided.</p>
+              )}
+              {ticket.ai_summary && (
+                <div className="flex items-start gap-2.5 rounded-md border border-primary/20 bg-primary/5 p-3 text-[13px]">
+                  <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span>
+                    <span className="font-medium">AI triage:</span> {ticket.ai_summary}
+                  </span>
+                </div>
+              )}
+              <PhotoGallery urls={ticket.photo_urls} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <Timeline updates={ticket.updates ?? []} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="grid gap-6 lg:sticky lg:top-24">
+          {isStaff && <StaffActions ticket={ticket} onChanged={refetch} />}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <dl className="grid gap-4">
+                <Detail icon={Hash} label="Ticket number">
+                  <span className="font-mono">{ticket.ticket_number}</span>
+                </Detail>
+                <Detail icon={Tag} label="Category">
+                  <span className="inline-flex items-center gap-1.5">
+                    {Category?.icon && <Category.icon className="size-4" />} {Category?.label}
+                  </span>
+                </Detail>
+                <Detail icon={MapPin} label="Location">
+                  {ticket.location?.name} <span className="font-mono text-[12px] text-muted-foreground">({ticket.location?.code})</span>
+                </Detail>
+                <Detail icon={Building2} label="Building">
+                  {ticket.location?.building}
+                  {ticket.location?.floor && `, ${ticket.location.floor}`}
+                </Detail>
+                <Detail icon={User} label="Reported by">
+                  {ticket.reporter?.full_name || 'Unknown'}{' '}
+                  <span className="text-muted-foreground">· {ROLES[ticket.reporter?.role]}</span>
+                </Detail>
+                <Detail icon={Wrench} label="Assigned to">
+                  {ticket.assignee?.full_name ?? <span className="text-muted-foreground">Not assigned yet</span>}
+                </Detail>
+                <Detail icon={CalendarClock} label="Reported on">
+                  {formatDate(ticket.created_at, { dateStyle: 'medium', timeStyle: 'short' })}
+                </Detail>
+              </dl>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+    </>
+  )
+}

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 /**
  * useAsync — run an async function and track { data, error, isLoading }.
  *
- *   const { data, isLoading, error, refetch } = useAsync(() => itemsService.list(params), [params.page])
+ *   const { data, isLoading, error, refetch } = useAsync(() => ticketsService.list(filters), [filters.status])
  *
  * - Re-runs when `deps` change.
  * - Ignores stale responses (race-condition safe).

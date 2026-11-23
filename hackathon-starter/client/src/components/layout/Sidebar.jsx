@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronsLeft, LifeBuoy, X } from 'lucide-react'
+import { ChevronsLeft, QrCode, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { navSections } from '@/data/navigation'
+import { navForRole } from '@/data/navigation'
+import { useAuth } from '@/providers/AuthProvider'
 import { Logo } from '@/components/shared/Logo'
 import { Tooltip } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
@@ -11,9 +12,11 @@ const EXPANDED = 256
 const COLLAPSED = 72
 
 function NavItems({ collapsed, onNavigate }) {
+  const { profile } = useAuth()
+  const sections = navForRole(profile?.role)
   return (
     <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 py-4">
-      {navSections.map((section) => (
+      {sections.map((section) => (
         <div key={section.title} className="mb-6 last:mb-0">
           <p className={cn('eyebrow mb-2 h-4 px-3 transition-opacity', collapsed && 'opacity-0')}>{section.title}</p>
           <ul className="grid gap-0.5">
@@ -72,10 +75,10 @@ function SidebarFooter({ collapsed }) {
   return (
     <div className="m-3 rounded-lg border border-border bg-card p-3.5">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <LifeBuoy className="size-4 text-primary" /> Starter kit
+        <QrCode className="size-4 text-primary" /> Scan &amp; report
       </div>
       <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-        Replace mock data in <code className="font-mono text-[11.5px]">src/services</code> when the API is ready.
+        Spotted something broken? Scan the QR code posted in the room to report it in seconds.
       </p>
     </div>
   )

@@ -14,7 +14,7 @@ import { Navbar } from './Navbar'
 export function AppLayout() {
   const location = useLocation()
   const outlet = useOutlet()
-  const [collapsed, setCollapsed] = useLocalStorage('hs-sidebar-collapsed', false)
+  const [collapsed, setCollapsed] = useLocalStorage('cf-sidebar-collapsed', false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   // Close mobile drawer and scroll to top on navigation
@@ -52,8 +52,8 @@ export function AppLayout() {
 
         <footer className="relative border-t border-border px-4 py-4 sm:px-6 lg:px-10">
           <div className="mx-auto flex max-w-7xl items-center justify-between font-mono text-[11px] text-muted-foreground">
-            <span>Hackathon Starter · v1.0</span>
-            <span className="hidden sm:inline">React · Express · Supabase</span>
+            <span>CampusFix · Campus facility reporting</span>
+            <span className="hidden sm:inline">Report it. Track it. Fixed.</span>
           </div>
         </footer>
       </div>

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 /**
  * useMutation — wrap a create/update/delete call with loading + error state.
  *
- *   const { mutate, isLoading } = useMutation(itemsService.create, {
+ *   const { mutate, isLoading } = useMutation(ticketsService.create, {
  *     onSuccess: () => toast.success('Saved'),
  *   })
  *   await mutate(values)

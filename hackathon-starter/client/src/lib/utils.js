@@ -44,7 +44,6 @@ export function timeAgo(value) {
   return '—'
 }
 
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 export function initials(name = '') {
   return name

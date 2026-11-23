@@ -1,29 +1,49 @@
-import { LayoutDashboard, ListChecks, Settings, Shapes } from 'lucide-react'
+import { ChartColumn, ClipboardList, House, MapPin, Settings, SquarePen, Ticket } from 'lucide-react'
 
 /**
- * Sidebar navigation. Add a page = add a route in App.jsx + an entry here.
+ * Sidebar navigation. `roles` limits an item to those profile roles
+ * (omit for everyone). Add a page = add a route in App.jsx + an entry here.
  */
 export const navSections = [
   {
-    title: 'Workspace',
+    title: 'Report',
     items: [
-      { label: 'Dashboard', to: '/', icon: LayoutDashboard, end: true },
-      { label: 'Items', to: '/items', icon: ListChecks, badge: 'CRUD' },
+      { label: 'Home', to: '/', icon: House, end: true },
+      { label: 'Report an issue', to: '/report', icon: SquarePen },
+      { label: 'My reports', to: '/my-reports', icon: ClipboardList },
     ],
   },
   {
-    title: 'Starter kit',
+    title: 'Maintenance',
+    roles: ['lab_assistant', 'maintenance', 'admin'],
     items: [
-      { label: 'Components', to: '/components', icon: Shapes },
-      { label: 'Settings', to: '/settings', icon: Settings },
+      { label: 'All tickets', to: '/tickets', icon: Ticket, end: true },
+      { label: 'Analytics', to: '/analytics', icon: ChartColumn },
+      { label: 'Locations & QR', to: '/locations', icon: MapPin, roles: ['admin'] },
     ],
+  },
+  {
+    title: 'Account',
+    items: [{ label: 'Settings', to: '/settings', icon: Settings }],
   },
 ]
 
+/** Sections and items visible to the given role. */
+export function navForRole(role) {
+  return navSections
+    .filter((s) => !s.roles || s.roles.includes(role))
+    .map((s) => ({ ...s, items: s.items.filter((i) => !i.roles || i.roles.includes(role)) }))
+    .filter((s) => s.items.length)
+}
+
 /** Pretty labels for auto-generated breadcrumbs */
 export const routeLabels = {
-  '/': 'Dashboard',
-  '/items': 'Items',
-  '/components': 'Components',
+  '/': 'Home',
+  '/report': 'Report an issue',
+  '/r': 'Report',
+  '/my-reports': 'My reports',
+  '/tickets': 'Tickets',
+  '/analytics': 'Analytics',
+  '/locations': 'Locations',
   '/settings': 'Settings',
 }

@@ -5,6 +5,8 @@ import { MotionConfig } from 'motion/react'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { ToastProvider } from '@/components/ui/toast'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { AuthProvider } from '@/providers/AuthProvider'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import App from './App'
 import '@/styles/globals.css'
 
@@ -16,7 +18,13 @@ createRoot(document.getElementById('root')).render(
         <MotionConfig reducedMotion="user">
           <TooltipProvider>
             <ToastProvider>
-              <App />
+              {isSupabaseConfigured ? (
+                <AuthProvider>
+                  <App />
+                </AuthProvider>
+              ) : (
+                <App />
+              )}
             </ToastProvider>
           </TooltipProvider>
         </MotionConfig>
