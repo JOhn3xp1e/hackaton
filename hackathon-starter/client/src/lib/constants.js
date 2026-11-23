@@ -67,6 +67,10 @@ export const CODE_PATTERN = /^[A-Z0-9-]{2,32}$/
 
 export const STUDENT_NO_PATTERN = /^[A-Za-z0-9-]{4,20}$/
 
+/** Keep in sync with tickets_reporter_email_format in database/schema.sql. */
+export const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+export const EMAIL_MAX = 254
+
 export const LOCATION_TYPES = {
   classroom: 'Classroom',
   laboratory: 'Laboratory',

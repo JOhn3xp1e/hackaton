@@ -7,7 +7,7 @@ import { useCallback, useState } from 'react'
  * so every access is guarded and the app still works without it.
  */
 const KEY = 'cf-student-identity'
-const EMPTY = { studentNo: '', name: '', anonymous: false }
+const EMPTY = { studentNo: '', name: '', anonymous: false, email: '' }
 
 export function readStudentIdentity() {
   try {
@@ -23,6 +23,7 @@ export function saveStudentIdentity(identity) {
     studentNo: (identity.studentNo ?? '').trim().toUpperCase(),
     name: (identity.name ?? '').trim(),
     anonymous: Boolean(identity.anonymous),
+    email: (identity.email ?? '').trim().toLowerCase(),
   }
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
