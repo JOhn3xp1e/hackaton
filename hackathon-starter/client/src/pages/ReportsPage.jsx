@@ -82,7 +82,7 @@ export default function ReportsPage() {
   return (
     <>
       <PageHeader
-        title="Reports feed"
+        title="Track reports"
         description="Every issue reported across campus, updated live. Comment if you've seen the same problem."
         actions={
           <Button asChild>

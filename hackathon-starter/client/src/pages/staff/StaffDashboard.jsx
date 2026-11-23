@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, BadgeCheck, CircleCheck, Clock, Siren, Timer, Wrench } from 'lucide-react'
+import { ArrowRight, BadgeCheck, ChartColumn, CircleCheck, Clock, Siren, Timer, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useLiveTickets } from '@/hooks/useLiveTickets'
 import { useAuth } from '@/providers/AuthProvider'
@@ -9,6 +9,7 @@ import { ticketsService } from '@/services/ticketsService'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
 import { TicketsTable } from '@/components/tickets/TicketsTable'
+import { AnalyticsOverview } from '@/components/analytics/AnalyticsOverview'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -49,11 +50,18 @@ export default function StaffDashboard() {
         title="Campus issues at a glance"
         description="New reports appear here in real time. Work the queue from the most urgent down."
         actions={
-          <Button asChild>
-            <Link to="/tickets">
-              All tickets <ArrowRight />
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <a href="#analytics">
+                <ChartColumn /> Analytics
+              </a>
+            </Button>
+            <Button asChild>
+              <Link to="/tickets">
+                Maintenance tasks <ArrowRight />
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -125,6 +133,10 @@ export default function StaffDashboard() {
           />
         </CardContent>
       </Card>
+
+      <div className="mt-10">
+        <AnalyticsOverview />
+      </div>
     </>
   )
 }

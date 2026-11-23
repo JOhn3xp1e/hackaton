@@ -1,4 +1,4 @@
-import { ChartColumn, LayoutGrid, Map, Monitor, Newspaper, QrCode, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
+import { Clock, LayoutGrid, Map, Monitor, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
 import { STAFF_ROLES } from '@/lib/constants'
 
 /**
@@ -7,6 +7,7 @@ import { STAFF_ROLES } from '@/lib/constants'
  *
  * Students can only report an issue; everything else is for teachers & staff
  * (STAFF_ROLES = teacher, lab_assistant, maintenance, admin).
+ * Analytics lives on the Overview page; room QR codes on the Campus Map.
  */
 export const navSections = [
   {
@@ -20,13 +21,11 @@ export const navSections = [
     roles: STAFF_ROLES,
     items: [
       { label: 'Overview', to: '/dashboard', icon: LayoutGrid },
-      { label: 'Reports Feed', to: '/reports', icon: Newspaper },
+      { label: 'Track Reports', to: '/reports', icon: Clock },
+      { label: 'Campus Map', to: '/campus-map', icon: Map },
+      { label: 'Equipment', to: '/equipment', icon: Monitor, roles: ['admin'] },
       { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true },
       { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
-      { label: 'Analytics', to: '/analytics', icon: ChartColumn },
-      { label: 'Campus Map', to: '/campus-map', icon: Map },
-      { label: 'Locations & QR', to: '/locations', icon: QrCode, roles: ['admin'] },
-      { label: 'Equipment & QR', to: '/equipment', icon: Monitor, roles: ['admin'] },
       { label: 'Settings', to: '/settings', icon: Settings },
     ],
   },
@@ -46,13 +45,11 @@ export const routeLabels = {
   '/': 'Report an issue',
   '/r': 'Report',
   '/dashboard': 'Overview',
-  '/reports': 'Reports feed',
+  '/reports': 'Track reports',
   '/leaderboard': 'Leaderboard',
   '/tickets': 'Maintenance tasks',
-  '/analytics': 'Analytics',
   '/campus-map': 'Campus map',
-  '/locations': 'Locations & QR',
-  '/equipment': 'Equipment & QR',
+  '/equipment': 'Equipment',
   '/e': 'Report',
   '/settings': 'Settings',
 }

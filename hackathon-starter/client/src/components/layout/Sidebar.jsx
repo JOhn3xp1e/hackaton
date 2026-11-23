@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronFirst, ChevronLast, X } from 'lucide-react'
+import { ChevronFirst, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { config } from '@/lib/config'
 import { navForRole } from '@/data/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { healthService } from '@/services/healthService'
-import { LogoMark } from '@/components/shared/Logo'
 import { Tooltip } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 
@@ -15,11 +14,14 @@ const EXPANDED = 264
 const COLLAPSED = 76
 const HEALTH_POLL_MS = 60_000
 
+const EASE_OUT = [0.16, 1, 0.3, 1]
+const SPRING = { type: 'spring', stiffness: 520, damping: 40, mass: 0.8 }
+
 const STATUS = {
-  checking: { label: 'Checking systems…', dot: 'bg-muted-foreground', pulse: true },
-  ok: { label: 'All systems operational', dot: 'bg-success', pulse: false },
-  degraded: { label: 'AI triage unavailable', dot: 'bg-warning', pulse: false },
-  down: { label: 'Server unreachable', dot: 'bg-destructive', pulse: true },
+  checking: { label: 'Checking systems…', dot: 'bg-muted-foreground', ping: true },
+  ok: { label: 'All systems operational', dot: 'bg-success', ping: false },
+  degraded: { label: 'AI triage unavailable', dot: 'bg-warning', ping: true },
+  down: { label: 'Server unreachable', dot: 'bg-destructive', ping: true },
 }
 
 /** Polls the Express health endpoint so the footer reflects the real backend state. */
@@ -55,73 +57,189 @@ function useSystemStatus() {
   return STATUS[status]
 }
 
+/* ───────────────────────────── Brand ───────────────────────────── */
+
+const MARK_PATHS = [
+  'M3 8V5a2 2 0 0 1 2-2h3',
+  'M16 3h3a2 2 0 0 1 2 2v3',
+  'M21 16v3a2 2 0 0 1-2 2h-3',
+  'M8 21H5a2 2 0 0 1-2-2v-3',
+]
+
+/** The scan-frame mark draws itself in, then the "+" pops. Spins a quarter turn on hover. */
+function AnimatedMark() {
+  return (
+    <motion.svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-7 shrink-0 text-primary"
+      aria-hidden
+      variants={{ hover: { rotate: 90, scale: 1.06 } }}
+      transition={SPRING}
+    >
+      {MARK_PATHS.map((d, i) => (
+        <motion.path
+          key={d}
+          d={d}
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 + i * 0.08, ease: EASE_OUT }}
+        />
+      ))}
+      <motion.g
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ ...SPRING, delay: 0.5 }}
+        style={{ transformOrigin: '12px 12px' }}
+      >
+        <path d="M12 8v8" />
+        <path d="M8 12h8" />
+      </motion.g>
+    </motion.svg>
+  )
+}
+
 function Brand({ collapsed }) {
   return (
     <div className={cn('px-6 pt-7 pb-6', collapsed && 'flex justify-center px-0')}>
-      <NavLink to="/" className="flex items-center gap-3" aria-label={`${config.appName} home`}>
-        <LogoMark />
+      <motion.div whileHover="hover" className="w-fit">
+        <NavLink to="/" className="flex items-center gap-3" aria-label={`${config.appName} home`}>
+          <AnimatedMark />
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <motion.span
+                key="wordmark"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+                className="truncate font-display text-[22px] font-bold leading-none tracking-tight"
+              >
+                {config.appName}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </NavLink>
+      </motion.div>
+      <AnimatePresence initial={false}>
         {!collapsed && (
-          <span className="truncate font-display text-[22px] font-bold leading-none tracking-tight">
-            {config.appName}
-          </span>
+          <motion.p
+            key="tagline"
+            initial={{ opacity: 0, letterSpacing: '0.3em' }}
+            animate={{ opacity: 1, letterSpacing: '0.12em' }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, delay: 0.25, ease: EASE_OUT }}
+            className="mt-3 overflow-hidden whitespace-nowrap font-mono text-[10px] text-muted-foreground uppercase"
+          >
+            Report · Track · Resolve
+          </motion.p>
         )}
-      </NavLink>
-      {!collapsed && (
-        <p className="mt-3 font-mono text-[10px] tracking-[0.12em] text-muted-foreground uppercase">
-          Report · Track · Resolve
-        </p>
-      )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function NavItems({ collapsed, onNavigate }) {
+/* ───────────────────────────── Navigation ───────────────────────────── */
+
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.045, delayChildren: 0.15 } },
+}
+const itemVariants = {
+  hidden: { opacity: 0, x: -12 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.4, ease: EASE_OUT } },
+}
+
+function NavItems({ collapsed, onNavigate, idPrefix }) {
   const { profile } = useAuth()
   const sections = navForRole(profile?.role)
+  const [hovered, setHovered] = useState(null)
+
   return (
-    <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4">
+    <nav className="flex-1 overflow-y-auto scrollbar-thin px-3 pb-4" onMouseLeave={() => setHovered(null)}>
       {sections.map((section) => (
         <div key={section.title} className="mb-6 last:mb-0">
-          <p
-            className={cn(
-              'mb-3 h-4 px-3 font-mono text-[11px] tracking-[0.1em] text-muted-foreground uppercase transition-opacity',
-              collapsed && 'opacity-0',
-            )}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: collapsed ? 0 : 1 }}
+            transition={{ duration: 0.25 }}
+            className="mb-3 h-4 px-3 font-mono text-[11px] tracking-[0.1em] whitespace-nowrap text-muted-foreground uppercase"
           >
             {section.title}
-          </p>
-          <ul className="grid gap-1">
+          </motion.p>
+          {/* Keyed by role so the stagger replays once the profile (and its items) loads */}
+          <motion.ul key={profile?.role ?? 'guest'} className="grid gap-1" variants={listVariants} initial="hidden" animate="show">
             {section.items.map((item) => (
-              <li key={item.to}>
+              <motion.li key={item.to} variants={itemVariants}>
                 <Tooltip content={collapsed ? item.label : null} side="right">
                   <NavLink
                     to={item.to}
                     end={item.end}
                     onClick={onNavigate}
+                    onMouseEnter={() => setHovered(item.to)}
+                    onFocus={() => setHovered(item.to)}
                     className={({ isActive }) =>
                       cn(
-                        'relative flex h-11 items-center gap-3.5 rounded-lg px-3 text-[14.5px] transition-colors',
+                        'group relative flex h-11 items-center gap-3.5 rounded-lg px-3 text-[14.5px] outline-none transition-colors duration-200',
                         collapsed && 'justify-center px-0',
-                        isActive
-                          ? 'font-medium text-primary'
-                          : 'text-foreground/75 hover:bg-muted hover:text-foreground',
+                        isActive ? 'font-medium text-primary' : 'text-foreground/75 hover:text-foreground',
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
+                        {/* Hover highlight glides between items */}
+                        <AnimatePresence>
+                          {hovered === item.to && !isActive && (
+                            <motion.span
+                              layoutId={`${idPrefix}-hover`}
+                              className="absolute inset-0 rounded-lg bg-muted"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={SPRING}
+                            />
+                          )}
+                        </AnimatePresence>
+                        {/* Active pill springs to the current page */}
                         {isActive && (
                           <motion.span
-                            layoutId="sidebar-active"
-                            className="absolute inset-0 rounded-lg bg-accent"
-                            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                            layoutId={`${idPrefix}-active`}
+                            className="absolute inset-0 rounded-lg bg-accent shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--primary)_12%,transparent)]"
+                            transition={SPRING}
                           />
                         )}
-                        <item.icon
-                          className={cn('relative size-5 shrink-0', !isActive && 'text-muted-foreground')}
-                          strokeWidth={1.75}
-                        />
-                        {!collapsed && <span className="relative truncate">{item.label}</span>}
+                        <motion.span
+                          className="relative grid place-items-center"
+                          animate={isActive ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                          transition={{ duration: 0.4, ease: EASE_OUT }}
+                        >
+                          <item.icon
+                            className={cn(
+                              'size-5 shrink-0 transition-transform duration-300 ease-out group-hover:-rotate-6 group-hover:scale-110',
+                              !isActive && 'text-muted-foreground group-hover:text-foreground',
+                            )}
+                            strokeWidth={1.75}
+                          />
+                        </motion.span>
+                        <AnimatePresence initial={false}>
+                          {!collapsed && (
+                            <motion.span
+                              key="label"
+                              initial={{ opacity: 0, x: -4 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -4 }}
+                              transition={{ duration: 0.18 }}
+                              className="relative truncate transition-transform duration-300 ease-out group-hover:translate-x-0.5"
+                            >
+                              {item.label}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                         {!collapsed && item.badge && (
                           <Badge variant="outline" className="relative ml-auto font-mono text-[10px]">
                             {item.badge}
@@ -131,34 +249,43 @@ function NavItems({ collapsed, onNavigate }) {
                     )}
                   </NavLink>
                 </Tooltip>
-              </li>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
         </div>
       ))}
     </nav>
   )
 }
 
+/* ───────────────────────────── Footer ───────────────────────────── */
+
 function CampusCard() {
   return (
-    <div className="mx-4 rounded-lg bg-accent px-4 py-3.5">
-      <p className="font-mono text-[11px] tracking-[0.08em] text-primary uppercase">{config.campusName}</p>
-      <p className="mt-1.5 truncate text-[13.5px] text-foreground">{config.campusUnit}</p>
-      <p className="mt-1.5 font-mono text-[9.5px] tracking-[0.1em] text-muted-foreground uppercase">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      transition={{ duration: 0.45, delay: 0.35, ease: EASE_OUT }}
+      className="relative mx-4 overflow-hidden rounded-lg bg-accent px-4 py-3.5"
+    >
+      {/* Soft sheen that sweeps across every few seconds */}
+      <motion.span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent dark:via-white/8"
+        animate={{ x: ['0%', '420%'] }}
+        transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity, repeatDelay: 6, delay: 1.2 }}
+      />
+      <p className="relative font-mono text-[11px] tracking-[0.08em] whitespace-nowrap text-primary uppercase">{config.campusName}</p>
+      <p className="relative mt-1.5 truncate text-[13.5px] text-foreground">{config.campusUnit}</p>
+      <p className="relative mt-1.5 font-mono text-[9.5px] tracking-[0.1em] whitespace-nowrap text-muted-foreground uppercase">
         Campus Network · v {config.appVersion}
       </p>
-    </div>
+    </motion.div>
   )
 }
 
 function SystemStatus({ status, collapsed }) {
-  const dot = (
-    <span className="relative flex size-2 shrink-0">
-      {status.pulse && <span className={cn('absolute inset-0 animate-ping rounded-full opacity-60', status.dot)} />}
-      <span className={cn('relative size-2 rounded-full', status.dot)} />
-    </span>
-  )
   return (
     <Tooltip content={collapsed ? status.label : null} side="right">
       <div
@@ -166,14 +293,38 @@ function SystemStatus({ status, collapsed }) {
         aria-live="polite"
         className={cn('flex items-center gap-2.5 px-6 py-4', collapsed && 'justify-center px-0')}
       >
-        {dot}
-        {collapsed ? <span className="sr-only">{status.label}</span> : (
-          <span className="truncate text-[12.5px] text-muted-foreground">{status.label}</span>
+        <span className="relative flex size-2 shrink-0">
+          <span
+            className={cn(
+              'absolute inset-0 rounded-full',
+              status.dot,
+              status.ping ? 'animate-ping opacity-60' : 'animate-[ping_2.4s_cubic-bezier(0,0,0.2,1)_infinite] opacity-30',
+            )}
+          />
+          <span className={cn('relative size-2 rounded-full transition-colors duration-500', status.dot)} />
+        </span>
+        {collapsed ? (
+          <span className="sr-only">{status.label}</span>
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={status.label}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+              className="truncate text-[12.5px] text-muted-foreground"
+            >
+              {status.label}
+            </motion.span>
+          </AnimatePresence>
         )}
       </div>
     </Tooltip>
   )
 }
+
+/* ───────────────────────────── Sidebar ───────────────────────────── */
 
 /**
  * Sidebar — collapsible on desktop, slide-in drawer on mobile.
@@ -191,8 +342,8 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClos
         className="sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r border-border bg-card text-sidebar-foreground lg:flex"
       >
         <Brand collapsed={collapsed} />
-        <NavItems collapsed={collapsed} />
-        {!collapsed && <CampusCard />}
+        <NavItems collapsed={collapsed} idPrefix="sidebar" />
+        <AnimatePresence initial={false}>{!collapsed && <CampusCard key="campus" />}</AnimatePresence>
         <SystemStatus status={status} collapsed={collapsed} />
 
         <div className="px-3 pb-4">
@@ -202,16 +353,30 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClos
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-expanded={!collapsed}
               className={cn(
-                'flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] text-foreground/75 transition-colors hover:bg-muted hover:text-foreground',
+                'group flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] text-foreground/75 transition-colors hover:bg-muted hover:text-foreground',
                 collapsed && 'justify-center px-0',
               )}
             >
-              {collapsed ? (
-                <ChevronLast className="size-5 shrink-0" strokeWidth={1.75} />
-              ) : (
-                <ChevronFirst className="size-5 shrink-0" strokeWidth={1.75} />
-              )}
-              {!collapsed && <span className="truncate">Collapse sidebar</span>}
+              <motion.span animate={{ rotate: collapsed ? 180 : 0 }} transition={SPRING} className="grid place-items-center">
+                <ChevronFirst
+                  className="size-5 shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5"
+                  strokeWidth={1.75}
+                />
+              </motion.span>
+              <AnimatePresence initial={false}>
+                {!collapsed && (
+                  <motion.span
+                    key="collapse-label"
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -4 }}
+                    transition={{ duration: 0.18 }}
+                    className="truncate whitespace-nowrap"
+                  >
+                    Collapse sidebar
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
           </Tooltip>
         </div>
@@ -241,12 +406,12 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onMobileClos
               <button
                 onClick={onMobileClose}
                 aria-label="Close menu"
-                className="absolute top-6 right-4 grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute top-6 right-4 grid size-8 place-items-center rounded-md text-muted-foreground transition-transform hover:rotate-90 hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
               <Brand />
-              <NavItems onNavigate={onMobileClose} />
+              <NavItems onNavigate={onMobileClose} idPrefix="drawer" />
               <CampusCard />
               <SystemStatus status={status} />
             </motion.aside>
