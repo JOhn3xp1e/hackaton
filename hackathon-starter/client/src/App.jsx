@@ -18,6 +18,7 @@ const StaffDashboard = lazy(() => import('@/pages/staff/StaffDashboard'))
 const TicketsPage = lazy(() => import('@/pages/staff/TicketsPage'))
 const AnalyticsPage = lazy(() => import('@/pages/staff/AnalyticsPage'))
 const LocationsPage = lazy(() => import('@/pages/staff/LocationsPage'))
+const EquipmentPage = lazy(() => import('@/pages/staff/EquipmentPage'))
 const CampusMapPage = lazy(() => import('@/pages/CampusMapPage'))
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
@@ -42,8 +43,9 @@ export default function App() {
         <Route element={<AppLayout />}>
           {/* Public: students can only report an issue (no account needed) */}
           <Route index element={<ReportPage />} />
-          {/* QR codes point here: /r/CL-LAB-2 */}
+          {/* QR codes point here: /r/CL-LAB-2 (room) and /e/CL1-PC-15 (one item) */}
           <Route path="r/:locationCode" element={<ReportPage />} />
+          <Route path="e/:equipmentCode" element={<ReportPage />} />
           {/* Reached only via the "Track it" link after submitting a report */}
           <Route path="tickets/:ticketNumber" element={<TicketPage />} />
 
@@ -59,6 +61,7 @@ export default function App() {
           </Route>
           <Route element={<RequireAuth roles={['admin']} />}>
             <Route path="locations" element={<LocationsPage />} />
+            <Route path="equipment" element={<EquipmentPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

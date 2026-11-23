@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { CircleAlert, Eye, EyeOff, MapPin, Maximize2, RotateCw, SearchX, SquarePen, Sun, Sunrise, Sunset } from 'lucide-react'
+import { CircleAlert, Eye, EyeOff, MapPin, Maximize2, Pencil, Plus, RotateCw, SearchX, SquarePen, Sun, Sunrise, Sunset, Trash2 } from 'lucide-react'
 import { CampusMap } from '@/components/campus/CampusMap'
+import { LocationFormModal } from '@/components/locations/LocationFormModal'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useAuth } from '@/providers/AuthProvider'
 import { LEVELS, ROOM_TYPES, levelLabel, placeLocations } from '@/data/campusLayout'
 import { locationsService } from '@/services/locationsService'
 import { analyticsService } from '@/services/analyticsService'
@@ -28,7 +31,12 @@ const LIGHTS = [
 
 export default function CampusMapPage() {
   const toast = useToast()
+  const { isAdmin } = useAuth()
   const mapRef = useRef(null)
+  const [form, setForm] = useState({ open: false, location: null }) // create (location null) or edit
+  const [deleting, setDeleting] = useState(null) // { location, equipment } while the confirm dialog is open
+  const [checkingDelete, setCheckingDelete] = useState(false)
+  const [focusId, setFocusId] = useState(null) // fly to a room once it exists on the map (after create / edit)
   const [status, setStatus] = useState('loading') // 3D scene: loading | ready | error
   const [sceneError, setSceneError] = useState(null)
   const [mapKey, setMapKey] = useState(0)
@@ -96,6 +104,53 @@ export default function CampusMapPage() {
     mapRef.current?.focusRoom(room.id)
   }
 
+  // Child effects (CampusMap's setRooms) run before this one, so the new room's mesh exists here.
+  useEffect(() => {
+    if (!focusId) return
+    const room = rooms.find((r) => r.id === focusId)
+    if (room) selectRoom(room)
+    setFocusId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, focusId])
+
+  const onSaved = (saved, isNew) => {
+    locations.setData((list) => (isNew ? [...(list ?? []), saved] : (list ?? []).map((l) => (l.id === saved.id ? saved : l))))
+    toast.success(isNew ? 'Location added' : 'Location saved', { description: `${saved.name} · ${saved.code}` })
+    setQuery('')
+    if (level !== null) changeLevel(null)
+    setFocusId(saved.id)
+  }
+
+  const askDelete = async (location) => {
+    setCheckingDelete(true)
+    try {
+      const usage = await locationsService.usage(location.id)
+      if (usage.tickets > 0) {
+        toast.error(`Can't delete ${location.name}`, {
+          description: `It has ${usage.tickets} ${usage.tickets === 1 ? 'ticket' : 'tickets'} on record. Tickets keep their room, so the room has to stay.`,
+        })
+        return
+      }
+      setDeleting({ location, equipment: usage.equipment })
+    } catch (err) {
+      toast.error('Could not check this location', { description: err.message })
+    } finally {
+      setCheckingDelete(false)
+    }
+  }
+
+  const confirmDelete = async () => {
+    const { location } = deleting
+    try {
+      await locationsService.remove(location.id)
+      locations.setData((list) => (list ?? []).filter((l) => l.id !== location.id))
+      if (selectedId === location.id) selectRoom(null)
+      toast.success('Location deleted', { description: `${location.name} · ${location.code}` })
+    } catch (err) {
+      toast.error(`Could not delete ${location.name}`, { description: err.message })
+    }
+  }
+
   const retryScene = () => {
     setSceneError(null)
     setStatus('loading')
@@ -124,9 +179,16 @@ export default function CampusMapPage() {
         title="Campus Map"
         description="Explore the building in 3D. Hover or tap a room to see it; drag to orbit, scroll or pinch to zoom, right-drag to pan."
         actions={
-          <Button variant="outline" size="sm" leftIcon={<Maximize2 />} onClick={() => mapRef.current?.resetView()} disabled={status !== 'ready'}>
-            Reset view
-          </Button>
+          <>
+            <Button variant="outline" size="sm" leftIcon={<Maximize2 />} onClick={() => mapRef.current?.resetView()} disabled={status !== 'ready'}>
+              Reset view
+            </Button>
+            {isAdmin && (
+              <Button size="sm" leftIcon={<Plus />} onClick={() => setForm({ open: true, location: null })}>
+                Add location
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -252,12 +314,33 @@ export default function CampusMapPage() {
                   Clear
                 </button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" asChild>
                   <Link to={`/r/${selected.code}`}>
                     <SquarePen /> Report an issue
                   </Link>
                 </Button>
+                {isAdmin && (
+                  <>
+                    <Tooltip content="Edit location" side="top">
+                      <Button size="icon-sm" variant="outline" aria-label={`Edit ${selected.name}`} onClick={() => setForm({ open: true, location: selected })}>
+                        <Pencil />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content="Delete location" side="top">
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        aria-label={`Delete ${selected.name}`}
+                        className="text-destructive hover:text-destructive"
+                        loading={checkingDelete}
+                        onClick={() => askDelete(selected)}
+                      >
+                        {!checkingDelete && <Trash2 />}
+                      </Button>
+                    </Tooltip>
+                  </>
+                )}
                 {selected.open > 0 && <Badge variant="warning">{selected.open} open</Badge>}
               </div>
             </div>
@@ -276,7 +359,14 @@ export default function CampusMapPage() {
                 icon={MapPin}
                 className="m-2"
                 title="No rooms yet"
-                description="Add locations on the Locations & QR page (admins), or run database/seed.sql for demo rooms."
+                description={isAdmin ? 'Add the first room to put it on the map.' : 'An admin needs to add rooms before they show up here.'}
+                action={
+                  isAdmin && (
+                    <Button size="sm" leftIcon={<Plus />} onClick={() => setForm({ open: true, location: null })}>
+                      Add location
+                    </Button>
+                  )
+                }
               />
             ) : listed.length === 0 ? (
               <EmptyState
@@ -322,6 +412,33 @@ export default function CampusMapPage() {
           </div>
         </Card>
       </div>
+
+      {isAdmin && (
+        <>
+          <LocationFormModal
+            key={form.location?.id ?? 'new'}
+            open={form.open}
+            onOpenChange={(open) => setForm((f) => ({ ...f, open }))}
+            location={form.location}
+            onSaved={onSaved}
+          />
+          <ConfirmDialog
+            open={!!deleting}
+            onOpenChange={(open) => !open && setDeleting(null)}
+            title={deleting ? `Delete ${deleting.location.name}?` : 'Delete location?'}
+            description={
+              deleting &&
+              `${deleting.location.code} will be removed from the map and its QR code will stop working.` +
+                (deleting.equipment > 0
+                  ? ` Its ${deleting.equipment} equipment ${deleting.equipment === 1 ? 'item' : 'items'} will be deleted too.`
+                  : '') +
+                ' This cannot be undone.'
+            }
+            confirmLabel="Delete location"
+            onConfirm={confirmDelete}
+          />
+        </>
+      )}
     </>
   )
 }

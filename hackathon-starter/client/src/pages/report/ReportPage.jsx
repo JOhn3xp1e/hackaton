@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { EyeOff, MapPin, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
+import { EyeOff, MapPin, Monitor, QrCode, Send, Sparkles, UserRound } from 'lucide-react'
 import { z } from 'zod'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
@@ -10,6 +10,7 @@ import { zodErrorsToObject } from '@/lib/schemas'
 import { useStudentIdentity } from '@/lib/studentIdentity'
 import { cn } from '@/lib/utils'
 import { locationsService } from '@/services/locationsService'
+import { equipmentService } from '@/services/equipmentService'
 import { photosService } from '@/services/photosService'
 import { ticketsService } from '@/services/ticketsService'
 import { triageService } from '@/services/triageService'
@@ -33,6 +34,7 @@ const schema = z.object({
   category: z.enum(CATEGORY_KEYS, { message: 'Choose a category' }),
   severity: z.enum(SEVERITY_KEYS, { message: 'Choose how serious it is' }),
   title: z.string().trim().min(3, 'Describe the problem in a few words').max(120, 'Keep it under 120 characters'),
+  equipmentId: z.union([z.string().uuid(), z.literal('')]),
   assetLabel: z.string().trim().max(80, 'Keep it under 80 characters'),
   description: z.string().trim().max(2000, 'Keep it under 2000 characters'),
 })
@@ -46,10 +48,17 @@ const studentSchema = z.object({
 
 const SECTION = 'border-b border-border px-5 py-5 last:border-b-0 sm:px-6'
 
-const EMPTY = { locationId: '', category: '', severity: 'medium', title: '', assetLabel: '', description: '' }
+const EMPTY = { locationId: '', equipmentId: '', category: '', severity: 'medium', title: '', assetLabel: '', description: '' }
+
+/** "Computer 15 (CL1-PC-15)" — stored in tickets.asset_label (max 80 chars). */
+const itemLabel = (item) => `${item.name} (${item.short_code})`.slice(0, 80)
+/** Values pre-filled by a scanned equipment QR code. */
+const fromItem = (item) => ({ locationId: item.location_id, equipmentId: item.id, assetLabel: itemLabel(item) })
+const OTHER_ITEM = '__other'
 
 export default function ReportPage() {
-  const { locationCode } = useParams()
+  const { locationCode, equipmentCode } = useParams()
+  const isScan = Boolean(locationCode || equipmentCode)
   const { user, profile, isStaff } = useAuth()
   const toast = useToast()
   const [identity, saveIdentity] = useStudentIdentity()
@@ -67,6 +76,7 @@ export default function ReportPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [created, setCreated] = useState(null)
+  const [otherItem, setOtherItem] = useState(false) // "Something else" chosen in the item picker
 
   // QR flow: resolve the scanned location. Otherwise load all locations for the picker.
   const scanned = useAsync(
@@ -78,7 +88,26 @@ export default function ReportPage() {
     },
     [locationCode],
   )
-  const all = useAsync(() => (locationCode ? Promise.resolve([]) : locationsService.list()), [locationCode], { initialData: [] })
+  // Equipment QR flow: resolve the scanned item; its room comes with it.
+  const scannedItem = useAsync(
+    async () => {
+      if (!equipmentCode) return null
+      const item = await equipmentService.getByShortCode(decodeURIComponent(equipmentCode))
+      if (item) setValues((v) => ({ ...v, ...fromItem(item) }))
+      return item ?? false
+    },
+    [equipmentCode],
+  )
+  const all = useAsync(() => (isScan ? Promise.resolve([]) : locationsService.list()), [isScan], { initialData: [] })
+
+  // Items in the chosen room for the "Which item?" picker. If the equipment table
+  // is unavailable this resolves to an error and the form falls back to free text.
+  const roomItems = useAsync(
+    () => (equipmentCode || !values.locationId ? Promise.resolve([]) : equipmentService.list({ locationId: values.locationId })),
+    [equipmentCode, values.locationId],
+    { initialData: [] },
+  )
+  const itemOptions = roomItems.error ? [] : (roomItems.data ?? [])
 
   const locationOptions = useMemo(() => {
     const groups = {}
@@ -86,10 +115,19 @@ export default function ReportPage() {
     return Object.entries(groups).map(([building, list]) => ({ building, list }))
   }, [all.data])
 
-  const location = locationCode ? scanned.data : (all.data ?? []).find((l) => l.id === values.locationId)
+  const location = equipmentCode
+    ? scannedItem.data?.location
+    : locationCode
+      ? scanned.data
+      : (all.data ?? []).find((l) => l.id === values.locationId)
+  const scan = equipmentCode ? scannedItem : scanned
 
   const set = (name, value) => {
-    setValues((v) => ({ ...v, [name]: value }))
+    // A different room means a different item list: drop the previously picked item.
+    if (name === 'locationId') {
+      setOtherItem(false)
+      setValues((v) => ({ ...v, locationId: value, ...(v.equipmentId && { equipmentId: '', assetLabel: '' }) }))
+    } else setValues((v) => ({ ...v, [name]: value }))
     if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }))
   }
   const setStudentField = (name, value) => {
@@ -97,8 +135,20 @@ export default function ReportPage() {
     if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }))
   }
 
+  const pickItem = (id) => {
+    const item = itemOptions.find((i) => i.id === id)
+    setOtherItem(id === OTHER_ITEM)
+    setValues((v) => ({ ...v, equipmentId: item?.id ?? '', assetLabel: item ? itemLabel(item) : '' }))
+    if (errors.assetLabel) setErrors((e) => ({ ...e, assetLabel: undefined }))
+  }
+
   const reset = () => {
-    setValues({ ...EMPTY, locationId: locationCode && scanned.data ? scanned.data.id : '' })
+    setValues({
+      ...EMPTY,
+      ...(locationCode && scanned.data && { locationId: scanned.data.id }),
+      ...(equipmentCode && scannedItem.data && fromItem(scannedItem.data)),
+    })
+    setOtherItem(false)
     setPhotos([])
     setAi(null)
     setErrors({})
@@ -165,6 +215,22 @@ export default function ReportPage() {
 
   if (created) return <ReportSuccess ticket={created} onReportAnother={reset} />
 
+  // QR code pointing at an unknown item
+  if (equipmentCode && scannedItem.data === false) {
+    return (
+      <EmptyState
+        icon={QrCode}
+        title="Unknown equipment code"
+        description={`We couldn't find an item with code "${decodeURIComponent(equipmentCode)}". The QR sticker may be outdated.`}
+        action={
+          <Button asChild variant="outline">
+            <Link to="/">Report it manually</Link>
+          </Button>
+        }
+      />
+    )
+  }
+
   // QR code pointing at an unknown room
   if (locationCode && scanned.data === false) {
     return (
@@ -186,7 +252,7 @@ export default function ReportPage() {
   return (
     <>
       <PageHeader
-        eyebrow={locationCode ? 'Scanned QR code' : 'New report'}
+        eyebrow={isScan ? 'Scanned QR code' : 'New report'}
         title="Report a broken facility"
         description="No account needed. Tell maintenance what's broken, get a ticket number, and earn credits when your report is confirmed."
       />
@@ -265,12 +331,22 @@ export default function ReportPage() {
             )}
           </FormSection>
 
-          <FormSection className={SECTION} title="Where is it?" description={locationCode ? 'Location from the QR code you scanned.' : 'Pick the room or area.'}>
-            {locationCode ? (
-              scanned.isLoading ? (
+          <FormSection
+            className={SECTION}
+            title="Where is it?"
+            description={
+              equipmentCode
+                ? 'Room and item from the QR code you scanned.'
+                : locationCode
+                  ? 'Location from the QR code you scanned.'
+                  : 'Pick the room or area.'
+            }
+          >
+            {isScan ? (
+              scan.isLoading ? (
                 <Skeleton className="h-16 w-full" />
-              ) : scanned.error ? (
-                <ErrorState compact error={scanned.error} onRetry={scanned.refetch} />
+              ) : scan.error ? (
+                <ErrorState compact error={scan.error} onRetry={scan.refetch} />
               ) : (
                 <div className="flex items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5">
                   <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
@@ -310,9 +386,63 @@ export default function ReportPage() {
                 )}
               </Field>
             )}
-            <Field label="Which item?" htmlFor="assetLabel" error={errors.assetLabel} hint="e.g. Computer 15, Ceiling projector, Chair in row 3">
-              <Input id="assetLabel" value={values.assetLabel} onChange={(e) => set('assetLabel', e.target.value)} placeholder="Computer 15" />
-            </Field>
+            {equipmentCode ? (
+              scannedItem.data && (
+                <div className="flex items-center gap-3 rounded-lg border border-primary/25 bg-primary/5 p-3.5">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
+                    <Monitor className="size-5" />
+                  </span>
+                  <span className="grid min-w-0">
+                    <span className="truncate font-semibold">{scannedItem.data.name}</span>
+                    {scannedItem.data.description && (
+                      <span className="truncate text-[13px] text-muted-foreground">{scannedItem.data.description}</span>
+                    )}
+                  </span>
+                  <span className="ml-auto rounded border border-border bg-card px-2 py-0.5 font-mono text-[11px]">
+                    {scannedItem.data.short_code}
+                  </span>
+                </div>
+              )
+            ) : itemOptions.length ? (
+              <>
+                <Field label="Which item?" htmlFor="equipmentId" hint='Pick the item, or choose "Something else" to type it.'>
+                  <Select
+                    id="equipmentId"
+                    value={values.equipmentId || (otherItem ? OTHER_ITEM : '')}
+                    onChange={(e) => pickItem(e.target.value)}
+                  >
+                    <option value="">Choose an item (optional)…</option>
+                    {itemOptions.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name} ({i.short_code})
+                      </option>
+                    ))}
+                    <option value={OTHER_ITEM}>Something else…</option>
+                  </Select>
+                </Field>
+                {otherItem && (
+                  <Field label="Describe the item" htmlFor="assetLabel" error={errors.assetLabel} hint="e.g. Chair in row 3, Wall socket by the door">
+                    <Input
+                      id="assetLabel"
+                      value={values.assetLabel}
+                      onChange={(e) => set('assetLabel', e.target.value)}
+                      placeholder="Chair in row 3"
+                      maxLength={80}
+                    />
+                  </Field>
+                )}
+              </>
+            ) : (
+              <Field label="Which item?" htmlFor="assetLabel" error={errors.assetLabel} hint="e.g. Computer 15, Ceiling projector, Chair in row 3">
+                <Input
+                  id="assetLabel"
+                  value={values.assetLabel}
+                  onChange={(e) => set('assetLabel', e.target.value)}
+                  placeholder={roomItems.isLoading && values.locationId ? 'Loading items…' : 'Computer 15'}
+                  maxLength={80}
+                />
+              </Field>
+            )}
           </FormSection>
 
           <FormSection className={SECTION} title="What's wrong?" description="A short title and any details that help the technician.">

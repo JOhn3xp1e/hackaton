@@ -1,4 +1,4 @@
-import { query, supabase } from '@/lib/supabase'
+import { friendlyError, query, supabase } from '@/lib/supabase'
 
 export const locationsService = {
   async list() {
@@ -29,5 +29,46 @@ export const locationsService = {
         .single(),
       'Could not add the location',
     )
+  },
+
+  /** @param {string} id  @param {{ code: string, name: string, building?: string, floor?: string, type: string }} input */
+  async update(id, input) {
+    return query(
+      supabase
+        .from('locations')
+        .update({
+          code: input.code.trim().toUpperCase(),
+          name: input.name.trim(),
+          building: input.building?.trim() ?? '',
+          floor: input.floor?.trim() ?? '',
+          type: input.type,
+        })
+        .eq('id', id)
+        .select('*')
+        .single(),
+      'Could not save the location',
+    )
+  },
+
+  /** Tickets block deletion (FK on delete restrict); equipment is deleted with the room (cascade). */
+  async usage(id) {
+    const count = async (table, fallback) => {
+      const res = await supabase.from(table).select('id', { count: 'exact', head: true }).eq('location_id', id)
+      if (res.error) throw new Error(friendlyError(res.error, fallback))
+      return res.count ?? 0
+    }
+    try {
+      const [tickets, equipment] = await Promise.all([
+        count('tickets', 'Could not check this location’s tickets'),
+        count('equipment', 'Could not check this location’s equipment'),
+      ])
+      return { tickets, equipment }
+    } catch (err) {
+      throw err instanceof Error ? err : new Error(friendlyError(err, 'Could not check this location'))
+    }
+  },
+
+  async remove(id) {
+    return query(supabase.from('locations').delete().eq('id', id), 'Could not delete the location')
   },
 }

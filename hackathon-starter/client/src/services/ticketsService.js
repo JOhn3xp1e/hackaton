@@ -66,7 +66,7 @@ export const ticketsService = {
    * optional reporterName, isAnonymous) reports.
    * @param {{ locationId: string, reporterId?: string, studentNo?: string, reporterName?: string,
    *           isAnonymous?: boolean, category: string, severity: string, title: string,
-   *           description?: string, assetLabel?: string, photoUrls?: string[],
+   *           description?: string, assetLabel?: string, equipmentId?: string, photoUrls?: string[],
    *           ai?: { summary: string, category: string, severity: string } | null }} input
    */
   async create(input) {
@@ -84,6 +84,8 @@ export const ticketsService = {
           title: input.title,
           description: input.description ?? '',
           asset_label: input.assetLabel ?? '',
+          // Only sent when an item was picked, so reports still work before the equipment migration.
+          ...(input.equipmentId && { equipment_id: input.equipmentId }),
           photo_urls: input.photoUrls ?? [],
           ai_summary: input.ai?.summary ?? null,
           ai_category: input.ai?.category ?? null,

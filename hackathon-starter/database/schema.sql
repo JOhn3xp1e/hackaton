@@ -187,6 +187,36 @@ create trigger tickets_sync_resolved_at
 
 
 -- ───────────────────────────────────────────────────────────────────────────
+-- 4b. equipment — individual items inside a room (PCs, projectors, aircons).
+--     Each item gets its own QR sticker that encodes its `short_code`; scanning
+--     it opens /e/<short_code> with the room and item pre-filled.
+-- ───────────────────────────────────────────────────────────────────────────
+create table if not exists public.equipment (
+  id           uuid primary key default gen_random_uuid(),
+  short_code   text        not null unique check (short_code ~ '^[A-Z0-9-]{2,32}$'),
+  name         text        not null check (char_length(name) between 2 and 80),
+  description  text        not null default '' check (char_length(description) <= 500),
+  location_id  uuid        not null
+                 constraint equipment_location_id_fkey references public.locations (id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create index if not exists equipment_location_idx on public.equipment (location_id);
+
+drop trigger if exists equipment_set_updated_at on public.equipment;
+create trigger equipment_set_updated_at
+  before update on public.equipment
+  for each row execute function public.set_updated_at();
+
+-- A ticket may point at a specific item. asset_label keeps the item's name as
+-- free text, so tickets still read correctly if the item is later deleted.
+alter table public.tickets add column if not exists equipment_id uuid
+  constraint tickets_equipment_id_fkey references public.equipment (id) on delete set null;
+create index if not exists tickets_equipment_idx on public.tickets (equipment_id);
+
+
+-- ───────────────────────────────────────────────────────────────────────────
 -- 5. ticket_updates — the status timeline shown on the ticket page
 -- ───────────────────────────────────────────────────────────────────────────
 create table if not exists public.ticket_updates (
@@ -344,6 +374,7 @@ alter table public.locations      disable row level security;
 alter table public.tickets        disable row level security;
 alter table public.ticket_updates disable row level security;
 alter table public.ticket_comments disable row level security;
+alter table public.equipment      disable row level security;
 
 
 -- ───────────────────────────────────────────────────────────────────────────
