@@ -9,10 +9,10 @@ export const photosService = {
     return null
   },
 
-  /** Upload one photo for the given user and return its public URL. */
-  async upload(file, userId) {
+  /** Upload one photo under `ownerKey` (staff user id, or students/<number>) and return its public URL. */
+  async upload(file, ownerKey) {
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
-    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `${ownerKey}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     try {
       const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
         cacheControl: '31536000',
@@ -26,7 +26,7 @@ export const photosService = {
     return supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl
   },
 
-  async uploadAll(files, userId) {
-    return Promise.all(files.map((f) => photosService.upload(f, userId)))
+  async uploadAll(files, ownerKey) {
+    return Promise.all(files.map((f) => photosService.upload(f, ownerKey)))
   },
 }

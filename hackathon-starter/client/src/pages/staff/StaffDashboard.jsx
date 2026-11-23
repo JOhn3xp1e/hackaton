@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, CircleCheck, Clock, Siren, Timer, Wrench } from 'lucide-react'
+import { ArrowRight, BadgeCheck, CircleCheck, Clock, Siren, Timer, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useLiveTickets } from '@/hooks/useLiveTickets'
 import { useAuth } from '@/providers/AuthProvider'
@@ -88,6 +88,20 @@ export default function StaffDashboard() {
             now (possible safety hazard).
           </span>
         </div>
+      )}
+
+      {o?.unreviewed > 0 && (
+        <Link
+          to="/tickets?validity=unreviewed"
+          className="mb-6 flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/8 px-4 py-3 text-sm transition-colors hover:bg-warning/12"
+        >
+          <BadgeCheck className="size-5 shrink-0 text-warning" />
+          <span className="flex-1">
+            <span className="font-semibold">{o.unreviewed} student {o.unreviewed === 1 ? 'report is' : 'reports are'}</span> awaiting
+            review. Mark them valid to award credits.
+          </span>
+          <ArrowRight className="size-4 shrink-0" />
+        </Link>
       )}
 
       <Card>

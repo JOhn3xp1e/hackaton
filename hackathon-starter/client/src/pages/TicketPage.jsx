@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { Building2, CalendarClock, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarClock, Hash, MapPin, SearchX, Sparkles, Tag, User, Wrench } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useAuth } from '@/providers/AuthProvider'
-import { CATEGORIES, ROLES } from '@/lib/constants'
+import { CATEGORIES, ROLES, VALIDITY } from '@/lib/constants'
+import { maskStudentNo, reporterLabel } from '@/lib/studentIdentity'
+import { Comments } from '@/components/tickets/Comments'
+import { ReviewPanel } from '@/components/tickets/ReviewPanel'
+import { Badge } from '@/components/ui/badge'
 import { formatDate, timeAgo } from '@/lib/utils'
 import { ticketsService } from '@/services/ticketsService'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -32,7 +36,8 @@ function Detail({ icon: Icon, label, children }) {
 
 export default function TicketPage() {
   const { ticketNumber } = useParams()
-  const { isStaff } = useAuth()
+  const { user, isStaff } = useAuth()
+  const staffView = Boolean(user && isStaff)
   const [flash, setFlash] = useState(false)
 
   const { data: ticket, isLoading, error, refetch } = useAsync(() => ticketsService.getByNumber(ticketNumber), [ticketNumber])
@@ -57,7 +62,7 @@ export default function TicketPage() {
         description={`There is no report with number ${ticketNumber}. Check the number and try again.`}
         action={
           <Button asChild variant="outline">
-            <Link to="/my-reports">Back to my reports</Link>
+            <Link to={staffView ? '/tickets' : '/'}>{staffView ? 'Back to tickets' : 'Report an issue'}</Link>
           </Button>
         }
       />
@@ -70,15 +75,15 @@ export default function TicketPage() {
     <>
       <PageHeader
         breadcrumbs={[
-          { label: 'Home', to: '/' },
-          isStaff ? { label: 'Tickets', to: '/tickets' } : { label: 'My reports', to: '/my-reports' },
+          staffView ? { label: 'Tickets', to: '/tickets' } : { label: 'Report an issue', to: '/' },
           { label: ticket.ticket_number },
         ]}
         eyebrow={ticket.ticket_number}
         title={ticket.title}
         description={`${ticket.location?.name}${ticket.asset_label ? ` · ${ticket.asset_label}` : ''} · reported ${timeAgo(ticket.created_at)}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {ticket.student_no && <StatusBadge status={ticket.validity} map={VALIDITY} />}
             <StatusBadge status={ticket.severity} map={SEVERITY_MAP} />
             <StatusBadge status={ticket.status} />
           </div>
@@ -120,10 +125,20 @@ export default function TicketPage() {
               <Timeline updates={ticket.updates ?? []} />
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Comments</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <Comments ticket={ticket} />
+            </CardContent>
+          </Card>
         </div>
 
         <aside className="grid gap-6 lg:sticky lg:top-24">
-          {isStaff && <StaffActions ticket={ticket} onChanged={refetch} />}
+          {staffView && ticket.student_no && <ReviewPanel ticket={ticket} onChanged={refetch} />}
+          {staffView && <StaffActions ticket={ticket} onChanged={refetch} />}
 
           <Card>
             <CardHeader>
@@ -147,9 +162,23 @@ export default function TicketPage() {
                   {ticket.location?.floor && `, ${ticket.location.floor}`}
                 </Detail>
                 <Detail icon={User} label="Reported by">
-                  {ticket.reporter?.full_name || 'Unknown'}{' '}
-                  <span className="text-muted-foreground">· {ROLES[ticket.reporter?.role]}</span>
+                  {reporterLabel(ticket)}{' '}
+                  {ticket.reporter ? (
+                    <span className="text-muted-foreground">· {ROLES[ticket.reporter.role]}</span>
+                  ) : (
+                    <span className="font-mono text-[12px] text-muted-foreground">
+                      · {staffView ? ticket.student_no : maskStudentNo(ticket.student_no)}
+                    </span>
+                  )}
                 </Detail>
+                {ticket.student_no && (
+                  <Detail icon={BadgeCheck} label="Report review">
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      <Badge variant={VALIDITY[ticket.validity]?.variant}>{VALIDITY[ticket.validity]?.label}</Badge>
+                      {ticket.validator?.full_name && <span className="text-muted-foreground">by {ticket.validator.full_name}</span>}
+                    </span>
+                  </Detail>
+                )}
                 <Detail icon={Wrench} label="Assigned to">
                   {ticket.assignee?.full_name ?? <span className="text-muted-foreground">Not assigned yet</span>}
                 </Detail>

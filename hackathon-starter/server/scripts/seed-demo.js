@@ -1,12 +1,13 @@
 /**
- * Creates demo accounts and ~40 historical tickets so the dashboard and
- * analytics look alive for the presentation.
+ * Creates staff demo accounts, ~35 historical student reports (student number,
+ * named or anonymous, with validity reviews → credits) and a few comments, so
+ * the feed, dashboard, leaderboard and analytics look alive.
  *
  *   npm run seed:demo            (from /server, after running schema.sql + seed.sql)
  *
- * Idempotent: existing demo users are reused, and tickets are only generated
- * when the demo reporters have none yet. Needs SUPABASE_URL and
- * SUPABASE_SERVICE_ROLE_KEY in server/.env.
+ * Idempotent: staff users are reused, and student reports are only generated
+ * when none exist yet. Also removes the v1 demo *student account* (students no
+ * longer sign in). Needs SUPABASE_URL and a secret/service-role key in server/.env.
  */
 import { env } from '../src/config/env.js'
 import { supabase } from '../src/config/supabase.js'
@@ -18,7 +19,38 @@ const DEMO_USERS = [
   { email: 'maintenance@campusfix.demo', full_name: 'Mario Santos', role: 'maintenance' },
   { email: 'labassistant@campusfix.demo', full_name: 'Lea Cruz', role: 'lab_assistant' },
   { email: 'teacher@campusfix.demo', full_name: 'Prof. Diana Reyes', role: 'teacher' },
-  { email: 'student@campusfix.demo', full_name: 'Sam Dela Cruz', role: 'student' },
+]
+const LEGACY_STUDENT_EMAIL = 'student@campusfix.demo'
+
+// Default super admin (role `admin`: full access incl. Campus Map / QR codes).
+// Override in server/.env. Change the password before any real deployment.
+const SUPER_ADMIN = {
+  email: process.env.SUPER_ADMIN_EMAIL || 'admin@gmail.com',
+  password: process.env.SUPER_ADMIN_PASSWORD || 'admin123',
+  full_name: 'Super Admin',
+  role: 'admin',
+}
+
+/** Create the super admin, or reset its password/role to the configured values if it exists. */
+async function ensureSuperAdmin(existing) {
+  const user = await ensureUser(SUPER_ADMIN, existing)
+  if (existing.some((u) => u.email === SUPER_ADMIN.email)) {
+    const { error } = await supabase.auth.admin.updateUserById(user.id, { password: SUPER_ADMIN.password, email_confirm: true })
+    if (error) throw error
+  }
+  return user
+}
+
+// [student number, name ('' = always anonymous)]
+const STUDENTS = [
+  ['2023-00412', 'Sam Dela Cruz'],
+  ['2023-01187', 'Maria Santos'],
+  ['2024-00056', 'Jessa Villanueva'],
+  ['2022-03321', 'Paolo Garcia'],
+  ['2024-00731', 'Bea Mendoza'],
+  ['2023-02045', 'Kenji Tan'],
+  ['2022-01909', ''],
+  ['2024-01266', 'Lara Aquino'],
 ]
 
 // [category, severity, title, asset, description, preferred location codes]
@@ -51,18 +83,30 @@ const NOTES = {
   resolved: ['Replaced the faulty part. Working now.', 'Fixed and tested with the class.', 'Repaired and cleaned up the area.'],
 }
 
+const STUDENT_COMMENTS = [
+  'Same problem here during our 2pm class.',
+  'Still happening this morning.',
+  'The one beside it is also acting up.',
+  'Can confirm, it has been like this since Monday.',
+  'Thanks for fixing this so fast!',
+]
+
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
 const hoursAgo = (h) => new Date(Date.now() - h * 3_600_000).toISOString()
 
-async function ensureUser({ email, full_name, role }) {
-  const { data: list, error: listError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-  if (listError) throw listError
-  let user = list.users.find((u) => u.email === email)
+async function listAuthUsers() {
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  if (error) throw error
+  return data.users
+}
+
+async function ensureUser({ email, full_name, role, password = DEMO_PASSWORD }, existing) {
+  let user = existing.find((u) => u.email === email)
 
   if (!user) {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password: DEMO_PASSWORD,
+      password,
       email_confirm: true,
       user_metadata: { full_name },
     })
@@ -70,7 +114,7 @@ async function ensureUser({ email, full_name, role }) {
     user = data.user
   }
 
-  // The sign-up trigger only allows student/teacher, so set the real role here.
+  // The sign-up trigger always creates teachers, so set the real role here.
   const { error: profileError } = await supabase
     .from('profiles')
     .upsert({ id: user.id, full_name, role }, { onConflict: 'id' })
@@ -78,15 +122,96 @@ async function ensureUser({ email, full_name, role }) {
   return { ...user, role, full_name }
 }
 
+/** Students no longer have accounts; deleting the v1 demo student cascades to its tickets. */
+async function removeLegacyStudent(existing) {
+  const legacy = existing.find((u) => u.email === LEGACY_STUDENT_EMAIL)
+  if (!legacy) return
+  const { error } = await supabase.auth.admin.deleteUser(legacy.id)
+  if (error) throw error
+  console.log('→ Removed the v1 demo student account (students now report with a student number).')
+}
+
+const staffIdsOf = (users) => [users.maintenance.id, users.lab_assistant.id, users.teacher.id]
+
+/**
+ * Some discussion on ~40% of student reports: a classmate confirms the problem,
+ * and the assigned staff member replies. Runs only when no comments exist yet.
+ * Every row lists every column so a mixed batch insert never sends NULLs.
+ */
+async function seedComments(staff) {
+  const { count, error: countError } = await supabase.from('ticket_comments').select('id', { head: true, count: 'exact' })
+  if (countError) throw countError
+  if (count > 0) {
+    console.log(`→ ${count} comments already exist, skipping comments.`)
+    return
+  }
+
+  const { data: tickets, error } = await supabase
+    .from('tickets')
+    .select('id, status, assigned_to, created_at')
+    .not('student_no', 'is', null)
+  if (error) throw error
+
+  const rows = []
+  for (const t of tickets) {
+    if (Math.random() >= 0.4) continue
+    const createdMs = new Date(t.created_at).getTime()
+    const ageHours = (Date.now() - createdMs) / 3_600_000
+    const [otherNo, otherName] = pick(STUDENTS)
+    rows.push({
+      ticket_id: t.id,
+      author_id: null,
+      student_no: otherNo,
+      display_name: otherName,
+      is_anonymous: !otherName || Math.random() < 0.3,
+      body: pick(STUDENT_COMMENTS),
+      created_at: hoursAgo(Math.max(0.1, ageHours * Math.random())),
+    })
+    const replier = t.assigned_to ?? (t.status !== 'pending' ? pick(staff) : null)
+    if (replier) {
+      rows.push({
+        ticket_id: t.id,
+        author_id: replier,
+        student_no: null,
+        display_name: '',
+        is_anonymous: false,
+        body: t.status === 'resolved' ? 'Fixed. Comment here if it happens again.' : 'Thanks for the extra details, we are on it.',
+        created_at: hoursAgo(Math.max(0.05, ageHours * Math.random() * 0.5)),
+      })
+    }
+  }
+
+  if (rows.length) {
+    const { error: insertError } = await supabase.from('ticket_comments').insert(rows)
+    if (insertError) throw insertError
+  }
+  console.log(`→ Added ${rows.length} comments.`)
+}
+
 async function main() {
   if (!supabase || !env.supabase.usingServiceRole) {
-    console.error('❌ Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in server/.env first.')
+    console.error('❌ Set SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) in server/.env first.')
     process.exit(1)
   }
 
-  console.log('→ Creating demo users…')
+  console.log('→ Creating staff demo users…')
+  const existing = await listAuthUsers()
   const users = {}
-  for (const u of DEMO_USERS) users[u.role] = await ensureUser(u)
+  for (const u of DEMO_USERS) users[u.role] = await ensureUser(u, existing)
+  try {
+    await ensureSuperAdmin(existing)
+  } catch (err) {
+    if (/password/i.test(err.message ?? '')) {
+      console.error(
+        `❌ Supabase rejected the super admin password: ${err.message}\n` +
+          '   Lower "Minimum password length" in Supabase → Authentication → Providers → Email (Password),\n' +
+          '   or set a longer SUPER_ADMIN_PASSWORD in server/.env, then run this again.',
+      )
+      process.exit(1)
+    }
+    throw err
+  }
+  await removeLegacyStudent(existing)
 
   const { data: locations, error: locError } = await supabase.from('locations').select('id, code')
   if (locError) throw locError
@@ -96,20 +221,25 @@ async function main() {
   }
   const locByCode = Object.fromEntries(locations.map((l) => [l.code, l.id]))
 
-  const reporterIds = [users.student.id, users.teacher.id, users.lab_assistant.id]
   const { count, error: countError } = await supabase
     .from('tickets')
     .select('id', { head: true, count: 'exact' })
-    .in('reporter_id', reporterIds)
-  if (countError) throw countError
+    .not('student_no', 'is', null)
+  if (countError) {
+    if (/student_no/.test(countError.message ?? '')) {
+      console.error('❌ The database is missing the v2 columns. Re-run database/schema.sql in the Supabase SQL editor first.')
+      process.exit(1)
+    }
+    throw countError
+  }
 
   if (count > 0) {
-    console.log(`→ ${count} demo tickets already exist, skipping ticket generation.`)
+    console.log(`→ ${count} student reports already exist, skipping ticket generation.`)
   } else {
-    console.log('→ Generating historical tickets…')
-    const staff = [users.maintenance.id, users.lab_assistant.id]
+    console.log('→ Generating historical student reports…')
+    const staff = staffIdsOf(users)
 
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 35; i++) {
       const [category, severity, title, asset, description, codes] = pick(TEMPLATES)
       const code = codes.find((c) => locByCode[c] && Math.random() < 0.6) ?? codes.find((c) => locByCode[c])
       if (!code) continue
@@ -124,11 +254,20 @@ async function main() {
       const resolvedAt = hoursAgo(resolvedAge)
       const assignee = status === 'pending' ? null : pick(staff)
 
+      // Students earlier in the list report more often → a nicer leaderboard spread.
+      const [studentNo, studentName] = STUDENTS[Math.floor(Math.pow(Math.random(), 1.6) * STUDENTS.length)]
+      const anonymous = !studentName || Math.random() < 0.2
+      // Most reviewed reports are valid; recent pending ones are often still unreviewed.
+      const validity = status === 'pending' && Math.random() < 0.7 ? 'unreviewed' : Math.random() < 0.88 ? 'valid' : 'invalid'
+      const reviewer = validity === 'unreviewed' ? null : pick(staff)
+
       const { data: ticket, error } = await supabase
         .from('tickets')
         .insert({
           location_id: locByCode[code],
-          reporter_id: pick(reporterIds),
+          student_no: studentNo,
+          reporter_name: studentName,
+          is_anonymous: anonymous,
           assigned_to: assignee,
           category,
           severity,
@@ -136,6 +275,9 @@ async function main() {
           title,
           description,
           asset_label: asset,
+          validity,
+          validated_by: reviewer,
+          validated_at: reviewer ? startedAt : null,
           resolved_at: status === 'resolved' ? resolvedAt : null,
           created_at: createdAt,
           updated_at: status === 'resolved' ? resolvedAt : status === 'in_progress' ? startedAt : createdAt,
@@ -155,11 +297,16 @@ async function main() {
         const { error: tlError } = await supabase.from('ticket_updates').insert(timeline)
         if (tlError) throw tlError
       }
+
     }
   }
 
-  console.log('\n✅ Demo data ready. Sign in with any of these (password: ' + DEMO_PASSWORD + '):')
+  await seedComments(staffIdsOf(users))
+
+  console.log(`\n✅ Demo data ready. Staff sign in with any of these (password: ${DEMO_PASSWORD}):`)
   for (const u of DEMO_USERS) console.log(`   ${u.role.padEnd(13)} ${u.email}`)
+  console.log(`   Super admin: ${SUPER_ADMIN.email} (password from SUPER_ADMIN_PASSWORD, default "admin123")`)
+  console.log('   Students do not sign in: they report from the home page with a student number, e.g. 2023-00412.')
 }
 
 main().catch((err) => {

@@ -40,7 +40,7 @@ export function StaffActions({ ticket, onChanged }) {
       // Picking up a ticket assigns it to you if nobody has it yet.
       if (status === 'in_progress' && !ticket.assigned_to) await ticketsService.assign(ticket.id, user.id)
       setNote('')
-      toast.success(`Marked ${STATUSES[status].label}`, { description: `${ticket.ticket_number} · the reporter sees this instantly.` })
+      toast.success(`Marked ${STATUSES[status].label}`, { description: `${ticket.ticket_number} · everyone following it sees this instantly.` })
       onChanged?.()
     } catch (err) {
       toast.error('Status not updated', { description: err.message })

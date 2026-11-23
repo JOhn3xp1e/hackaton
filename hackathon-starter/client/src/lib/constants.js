@@ -48,7 +48,21 @@ export const ROLES = {
   maintenance: 'Maintenance',
   admin: 'Administrator',
 }
-export const STAFF_ROLES = ['lab_assistant', 'maintenance', 'admin']
+/** Teachers sign up themselves and act as staff; students have no account. */
+export const STAFF_ROLES = ['teacher', 'lab_assistant', 'maintenance', 'admin']
+
+/** Staff review of a report — drives credits. */
+export const VALIDITY = {
+  unreviewed: { label: 'Awaiting review', variant: 'outline' },
+  valid: { label: 'Valid', variant: 'success' },
+  invalid: { label: 'Invalid', variant: 'danger' },
+}
+export const VALIDITY_KEYS = Object.keys(VALIDITY)
+
+/** Keep in sync with the student_credits view in database/schema.sql. */
+export const CREDITS = { valid: 10, resolvedBonus: 5 }
+
+export const STUDENT_NO_PATTERN = /^[A-Za-z0-9-]{4,20}$/
 
 export const LOCATION_TYPES = {
   classroom: 'Classroom',

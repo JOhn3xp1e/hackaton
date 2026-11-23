@@ -8,9 +8,11 @@ import { query, supabase } from '@/lib/supabase'
 const LIST_SELECT = `
   id, ticket_number, category, severity, status, title, asset_label, photo_urls,
   ai_summary, created_at, updated_at, resolved_at, reporter_id, assigned_to,
+  student_no, reporter_name, is_anonymous, validity,
   location:locations!tickets_location_id_fkey ( id, code, name, building ),
   reporter:profiles!tickets_reporter_id_fkey ( id, full_name, role ),
-  assignee:profiles!tickets_assigned_to_fkey ( id, full_name, role )
+  assignee:profiles!tickets_assigned_to_fkey ( id, full_name, role ),
+  comments:ticket_comments ( count )
 `
 
 const DETAIL_SELECT = `
@@ -18,6 +20,7 @@ const DETAIL_SELECT = `
   location:locations!tickets_location_id_fkey ( id, code, name, building, floor, type ),
   reporter:profiles!tickets_reporter_id_fkey ( id, full_name, role ),
   assignee:profiles!tickets_assigned_to_fkey ( id, full_name, role ),
+  validator:profiles!tickets_validated_by_fkey ( id, full_name, role ),
   updates:ticket_updates (
     id, from_status, to_status, note, created_at,
     author:profiles!ticket_updates_author_id_fkey ( id, full_name, role )
@@ -26,12 +29,13 @@ const DETAIL_SELECT = `
 
 export const ticketsService = {
   /**
-   * @param {{ reporterId?: string, status?: string, severity?: string, category?: string,
-   *           locationId?: string, search?: string, limit?: number }} filters
+   * @param {{ studentNo?: string, status?: string, severity?: string, category?: string,
+   *           locationId?: string, validity?: string, search?: string, limit?: number }} filters
    */
   async list(filters = {}) {
     let q = supabase.from('tickets').select(LIST_SELECT).order('created_at', { ascending: false })
-    if (filters.reporterId) q = q.eq('reporter_id', filters.reporterId)
+    if (filters.studentNo) q = q.eq('student_no', filters.studentNo.trim().toUpperCase())
+    if (filters.validity) q = q.eq('validity', filters.validity)
     if (filters.status) q = q.eq('status', filters.status)
     if (filters.severity) q = q.eq('severity', filters.severity)
     if (filters.category) q = q.eq('category', filters.category)
@@ -58,8 +62,11 @@ export const ticketsService = {
   },
 
   /**
-   * @param {{ locationId: string, reporterId: string, category: string, severity: string,
-   *           title: string, description?: string, assetLabel?: string, photoUrls?: string[],
+   * Either a signed-in staff member (reporterId) or a student (studentNo,
+   * optional reporterName, isAnonymous) reports.
+   * @param {{ locationId: string, reporterId?: string, studentNo?: string, reporterName?: string,
+   *           isAnonymous?: boolean, category: string, severity: string, title: string,
+   *           description?: string, assetLabel?: string, photoUrls?: string[],
    *           ai?: { summary: string, category: string, severity: string } | null }} input
    */
   async create(input) {
@@ -68,7 +75,10 @@ export const ticketsService = {
         .from('tickets')
         .insert({
           location_id: input.locationId,
-          reporter_id: input.reporterId,
+          reporter_id: input.reporterId ?? null,
+          student_no: input.studentNo ? input.studentNo.trim().toUpperCase() : null,
+          reporter_name: input.reporterName?.trim() ?? '',
+          is_anonymous: Boolean(input.isAnonymous),
           category: input.category,
           severity: input.severity,
           title: input.title,
@@ -101,9 +111,26 @@ export const ticketsService = {
     )
   },
 
+  /** Staff: mark a student's report valid (earns credits) or invalid. */
+  async setValidity(ticketId, validity, staffId) {
+    return query(
+      supabase
+        .from('tickets')
+        .update({
+          validity,
+          validated_by: validity === 'unreviewed' ? null : staffId,
+          validated_at: validity === 'unreviewed' ? null : new Date().toISOString(),
+        })
+        .eq('id', ticketId)
+        .select('id, validity')
+        .single(),
+      'Could not save the review',
+    )
+  },
+
   /**
    * Realtime: call `onChange(payload)` on any insert/update to tickets (optionally
-   * filtered, e.g. `reporter_id=eq.<uuid>`). Returns an unsubscribe function.
+   * filtered, e.g. `student_no=eq.2023-00412`). Returns an unsubscribe function.
    */
   subscribe(onChange, { filter, channel = 'tickets-changes' } = {}) {
     const ch = supabase

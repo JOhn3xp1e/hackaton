@@ -35,7 +35,7 @@ export function RequireAuth({ roles, children }) {
       <EmptyState
         icon={ShieldAlert}
         title="Staff only"
-        description="This page is for maintenance staff and administrators."
+        description="This page is for teachers, maintenance staff and administrators. Sign in with a staff account to continue."
         className="m-6"
       />
     )

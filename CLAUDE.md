@@ -46,6 +46,13 @@ This is useful because it addresses a problem that your existing school platform
 - **Node.js Backend Role:** Reserve the `/server` Express app strictly for operations requiring secret environment variables (LLM calls, webhooks, third-party API keys).
 - **Database Security:** Assume Supabase Row Level Security (RLS) is DISABLED during rapid prototyping unless explicitly instructed otherwise. Do not write RLS policies unless asked.
 
+# Roles & Product Rules (v2)
+- **Students have no account.** They report from the public home page (`/`, or `/r/:locationCode` from a QR code) with a required student number, an optional name and an anonymous toggle. The number is remembered on the device (`lib/studentIdentity.js`).
+- **Teachers sign up with email and password (role `teacher`) and count as staff.** `STAFF_ROLES` = teacher, lab_assistant, maintenance and admin. Only `admin` manages locations and QR codes.
+- **Students can only report an issue.** The only student-facing pages are `/` and `/r/:code`, plus the ticket page reached through the "Track it" link after submitting. The **reports feed (`/reports`, with a "By student" filter) and `/leaderboard` are staff-only.** Ticket comments: staff comment as their profile, students with their student number. The student number placeholder is `2000XXXXXX`.
+- **Credits:** staff mark a student report `valid` or `invalid` (`tickets.validity`). Valid = +10, plus +5 when resolved. Computed by the `student_credits` view, mirrored in `CREDITS` in `client/src/lib/constants.js`. Shown to staff on `/leaderboard`.
+- **`POST /api/triage` is public and rate-limited per IP.**
+
 # Directory Structure
 All app code lives in `hackathon-starter/`:
 - `client/` - React frontend (`src/components`, `src/pages`, `src/services`, `src/lib/supabase.js`, `src/lib/constants.js` for domain enums)

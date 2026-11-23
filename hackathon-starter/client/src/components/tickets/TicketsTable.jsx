@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router'
 import { Inbox } from 'lucide-react'
-import { CATEGORIES } from '@/lib/constants'
+import { CATEGORIES, VALIDITY } from '@/lib/constants'
 import { timeAgo } from '@/lib/utils'
 import { DataTable } from '@/components/shared/DataTable'
 import { SEVERITY_MAP, StatusBadge } from '@/components/shared/StatusBadge'
@@ -43,6 +43,14 @@ const columns = [
     render: (t) => <StatusBadge status={t.severity} map={SEVERITY_MAP} />,
   },
   { key: 'status', header: 'Status', sortable: true, render: (t) => <StatusBadge status={t.status} /> },
+  {
+    key: 'validity',
+    header: 'Review',
+    hideOnMobile: true,
+    sortable: true,
+    render: (t) =>
+      t.student_no ? <StatusBadge status={t.validity} map={VALIDITY} /> : <span className="text-[12px] text-muted-foreground">Staff report</span>,
+  },
   {
     key: 'assignee',
     header: 'Assignee',

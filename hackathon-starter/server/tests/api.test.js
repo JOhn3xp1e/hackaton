@@ -41,16 +41,14 @@ describe('health', () => {
 })
 
 describe('triage', () => {
-  test('POST /triage without a token → 401', async () => {
-    const { status, body } = await call('POST', '/triage', { title: 'Computer 15 will not boot' })
-    assert.equal(status, 401)
+  // Only invalid bodies are sent, so Claude is never called even if
+  // ANTHROPIC_API_KEY is present in server/.env.
+  test('POST /triage is public but validates the body → 422', async () => {
+    const { status, body } = await call('POST', '/triage', { title: 'x' })
+    assert.equal(status, 422)
     assert.equal(body.success, false)
-    assert.equal(body.error.code, 'UNAUTHORIZED')
-  })
-
-  test('POST /triage with a malformed Authorization header → 401', async () => {
-    const { status } = await call('POST', '/triage', { title: 'Projector flickers' }, { Authorization: 'Token abc' })
-    assert.equal(status, 401)
+    assert.equal(body.error.code, 'VALIDATION_ERROR')
+    assert.ok(body.error.details.title)
   })
 
   test('POST /triage with invalid JSON → 400', async () => {
@@ -60,6 +58,15 @@ describe('triage', () => {
       body: '{"title":',
     })
     assert.equal(res.status, 400)
+  })
+})
+
+describe('rate limit', () => {
+  test('POST /triage is limited to 10 requests per window → 429', async () => {
+    let last
+    for (let i = 0; i < 12; i++) last = await call('POST', '/triage', { title: '' })
+    assert.equal(last.status, 429)
+    assert.equal(last.body.error.code, 'RATE_LIMITED')
   })
 })
 

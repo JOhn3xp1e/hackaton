@@ -4,7 +4,7 @@ import { FilterX } from 'lucide-react'
 import { useAsync } from '@/hooks/useAsync'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useLiveTickets } from '@/hooks/useLiveTickets'
-import { CATEGORIES, CATEGORY_KEYS, SEVERITIES, SEVERITY_KEYS, STATUS_KEYS, STATUSES } from '@/lib/constants'
+import { CATEGORIES, CATEGORY_KEYS, SEVERITIES, SEVERITY_KEYS, STATUS_KEYS, STATUSES, VALIDITY, VALIDITY_KEYS } from '@/lib/constants'
 import { locationsService } from '@/services/locationsService'
 import { ticketsService } from '@/services/ticketsService'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -13,7 +13,7 @@ import { TicketsTable } from '@/components/tickets/TicketsTable'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 
-const FILTERS = ['status', 'severity', 'category', 'location']
+const FILTERS = ['status', 'severity', 'category', 'location', 'validity']
 
 export default function TicketsPage() {
   const [params, setParams] = useSearchParams()
@@ -36,9 +36,10 @@ export default function TicketsPage() {
         severity: filters.severity,
         category: filters.category,
         locationId: filters.location,
+        validity: filters.validity,
         search: debounced,
       }),
-    [filters.status, filters.severity, filters.category, filters.location, debounced],
+    [filters.status, filters.severity, filters.category, filters.location, filters.validity, debounced],
     { initialData: [] },
   )
   useLiveTickets(refetch, { channel: 'tickets-page' })
@@ -54,10 +55,10 @@ export default function TicketsPage() {
       <PageHeader
         breadcrumbs
         title="All tickets"
-        description="Every reported issue across campus. Click a row to update its status."
+        description="Every reported issue across campus. Click a row to update its status or review it for credits."
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.3fr_repeat(4,1fr)_auto]">
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.3fr_repeat(5,1fr)_auto]">
         <SearchBar value={search} onChange={(v) => setParam('search', v)} placeholder="Title, ticket # or asset…" />
         <Select
           aria-label="Filter by status"
@@ -82,6 +83,12 @@ export default function TicketsPage() {
           value={filters.location}
           onChange={(e) => setParam('location', e.target.value)}
           options={[{ value: '', label: locations.isLoading ? 'Loading…' : 'All locations' }, ...locationOptions]}
+        />
+        <Select
+          aria-label="Filter by review"
+          value={filters.validity}
+          onChange={(e) => setParam('validity', e.target.value)}
+          options={[{ value: '', label: 'Any review' }, ...VALIDITY_KEYS.map((k) => ({ value: k, label: VALIDITY[k].label }))]}
         />
         <Button variant="ghost" onClick={() => setParams({}, { replace: true })} disabled={!hasFilters} leftIcon={<FilterX />}>
           Clear

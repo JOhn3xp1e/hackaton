@@ -1,20 +1,27 @@
-import { ChartColumn, Clock, LayoutGrid, Map, QrCode, Settings, SquarePen, Wrench } from 'lucide-react'
-
-const STAFF = ['lab_assistant', 'maintenance', 'admin']
+import { ChartColumn, LayoutGrid, Map, Newspaper, QrCode, Settings, SquarePen, Trophy, Wrench } from 'lucide-react'
+import { STAFF_ROLES } from '@/lib/constants'
 
 /**
- * Sidebar navigation. `roles` limits an item to those profile roles
- * (omit for everyone). Add a page = add a route in App.jsx + an entry here.
+ * Sidebar navigation. `roles` limits a section/item to those profile roles
+ * (omit for everyone, including signed-out students).
+ *
+ * Students can only report an issue; everything else is for teachers & staff
+ * (STAFF_ROLES = teacher, lab_assistant, maintenance, admin).
  */
 export const navSections = [
   {
+    title: 'Campus',
+    items: [{ label: 'Report an Issue', to: '/', icon: SquarePen, end: true }],
+  },
+  {
     title: 'Workspace',
+    roles: STAFF_ROLES,
     items: [
-      { label: 'Overview', to: '/', icon: LayoutGrid, end: true },
-      { label: 'Report an Issue', to: '/report', icon: SquarePen },
-      { label: 'Track Reports', to: '/my-reports', icon: Clock },
-      { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true, roles: STAFF },
-      { label: 'Analytics', to: '/analytics', icon: ChartColumn, roles: STAFF },
+      { label: 'Overview', to: '/dashboard', icon: LayoutGrid },
+      { label: 'Reports Feed', to: '/reports', icon: Newspaper },
+      { label: 'Maintenance Tasks', to: '/tickets', icon: Wrench, end: true },
+      { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
+      { label: 'Analytics', to: '/analytics', icon: ChartColumn },
       { label: 'Campus Map', to: '/campus-map', icon: Map },
       { label: 'Locations & QR', to: '/locations', icon: QrCode, roles: ['admin'] },
       { label: 'Settings', to: '/settings', icon: Settings },
@@ -22,7 +29,7 @@ export const navSections = [
   },
 ]
 
-/** Sections and items visible to the given role. */
+/** Sections and items visible to the given role (undefined = signed-out student). */
 export function navForRole(role) {
   return navSections
     .filter((s) => !s.roles || s.roles.includes(role))
@@ -32,10 +39,11 @@ export function navForRole(role) {
 
 /** Pretty labels for auto-generated breadcrumbs */
 export const routeLabels = {
-  '/': 'Overview',
-  '/report': 'Report an issue',
+  '/': 'Report an issue',
   '/r': 'Report',
-  '/my-reports': 'Track reports',
+  '/dashboard': 'Overview',
+  '/reports': 'Reports feed',
+  '/leaderboard': 'Leaderboard',
   '/tickets': 'Maintenance tasks',
   '/analytics': 'Analytics',
   '/campus-map': 'Campus map',
